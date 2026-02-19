@@ -22,6 +22,8 @@ import {onRequest} from 'firebase-functions/v2/https';
 import {
   NationalRankingModel,
   PersonNameModel,
+  TournamentGroupModel,
+  TournamentGroupingMethod,
   TournamentSeedingMatchedBy,
   TournamentSeedingModel,
   TournamentSeedingSourceType,
@@ -41,6 +43,8 @@ import {
   PlayersRepository,
   RoundsRepository,
   ScoresRepository,
+  TournamentGroupUpsertInput,
+  TournamentGroupsRepository,
   TournamentSeedingUpsertInput,
   TournamentSeedingsRepository,
   TournamentsRepository,
@@ -55,6 +59,7 @@ const usersRepository = new UsersRepository(db);
 const playersRepository = new PlayersRepository(db);
 const nationalRankingsRepository = new NationalRankingsRepository(db);
 const tournamentSeedingsRepository = new TournamentSeedingsRepository(db);
+const tournamentGroupsRepository = new TournamentGroupsRepository(db);
 const tournamentsRepository = new TournamentsRepository(db, counterRepository);
 const roundsRepository = new RoundsRepository(db, counterRepository);
 const scoresRepository = new ScoresRepository(db);
@@ -114,6 +119,7 @@ interface UserRecord {
 interface MatchRecord {
   id: number;
   tournament_id: number | null;
+  group_number: number | null;
   round_number: number;
   table_number: number;
   player1_id: number;
@@ -153,6 +159,7 @@ interface UserDto {
 interface MatchDto {
   id: number;
   tournament_id: number | null;
+  group_number: number | null;
   round_number: number;
   table_number: number;
   player1: {
@@ -250,6 +257,7 @@ interface TournamentSetupMetadataInput {
   startDateTime: string;
   endDateTime: string;
   srrRounds: number;
+  numberOfGroups: number;
   singlesMaxParticipants: number;
   doublesMaxTeams: number;
   numberOfTables: number;
@@ -281,6 +289,7 @@ interface TournamentSetupResultDto {
       start_date_time: string;
       end_date_time: string;
       srr_rounds: number;
+      number_of_groups: number;
       singles_max_participants: number;
       doubles_max_teams: number;
       number_of_tables: number;
@@ -374,6 +383,61 @@ interface TournamentSeedingSnapshotDto {
   rows: TournamentSeedingRowDto[];
 }
 
+interface TournamentGroupRowDto {
+  seed: number;
+  group_number: number;
+  group_count: number;
+  method: TournamentGroupingMethod;
+  player_id: number;
+  display_name: string;
+  handle: string;
+  state: string | null;
+  country: string | null;
+  email_id: string | null;
+  source_type: TournamentSeedingSourceType;
+  ranking_rank: number | null;
+  ranking_year: number | null;
+  ranking_description: string | null;
+  updated_at: string;
+}
+
+interface TournamentGroupsSnapshotDto {
+  tournament: TournamentDto;
+  generated: boolean;
+  method: TournamentGroupingMethod | null;
+  group_count: number;
+  generated_at: string | null;
+  rows: TournamentGroupRowDto[];
+}
+
+type RoundOnePairingMethod = 'adjacent' | 'top_vs_top' | 'top_vs_bottom';
+
+interface GroupMatchupSummaryDto {
+  group_number: number;
+  player_count: number;
+  current_round: number;
+  max_rounds: number;
+  pending_matches: number;
+  completed_matches: number;
+}
+
+interface MatchupGenerateResultDto {
+  tournament: TournamentDto;
+  group_number: number;
+  round_number: number;
+  method: RoundOnePairingMethod | 'swiss';
+  matches_created: number;
+  summary: GroupMatchupSummaryDto;
+}
+
+interface MatchupDeleteResultDto {
+  tournament: TournamentDto;
+  group_number: number;
+  deleted_round_number: number;
+  deleted_matches: number;
+  summary: GroupMatchupSummaryDto;
+}
+
 interface NationalRankingUploadInput {
   rank: number;
   playerName: string;
@@ -403,6 +467,7 @@ const COLLECTIONS = {
   nationalRankings: 'national_rankings',
   tournamentPlayers: 'tournament_players',
   tournamentSeedings: 'tournament_seedings',
+  tournamentGroups: 'tournament_groups',
   tournaments: 'tournaments',
   rounds: 'rounds',
   scores: 'scores',
@@ -667,6 +732,21 @@ function parseTournamentSetupMetadata(
       payload.doublesMaxTeams,
     'tournament_limits_doubles_max_teams',
   );
+  const numberOfGroups = parsePositiveInt(
+    payload.tournament_number_of_groups ??
+      payload.number_of_groups ??
+      payload.numberOfGroups ??
+      payload.group_count ??
+      payload.groupCount ??
+      4,
+    'tournament_number_of_groups',
+  );
+  if (numberOfGroups > 64) {
+    throw new HttpError(
+      422,
+      'tournament_number_of_groups must be <= 64.',
+    );
+  }
   const venueName = toText(
     payload.tournament_venue_name ?? payload.venue_name ?? payload.venueName,
   ).trim();
@@ -714,6 +794,16 @@ function parseTournamentSetupMetadata(
     subType === 'singles'
       ? singlesMaxParticipants / 2
       : doublesMaxTeams / 2;
+  const participantLimit =
+    subType === 'singles'
+      ? singlesMaxParticipants
+      : doublesMaxTeams;
+  if (numberOfGroups > participantLimit) {
+    throw new HttpError(
+      422,
+      `tournament_number_of_groups must be <= participant limit (${participantLimit}).`,
+    );
+  }
   const roundTimeLimitMinutes = parsePositiveInt(
     payload.tournament_round_time_limit_minutes ??
       payload.round_time_limit_minutes ??
@@ -750,6 +840,7 @@ function parseTournamentSetupMetadata(
     startDateTime,
     endDateTime,
     srrRounds,
+    numberOfGroups,
     singlesMaxParticipants,
     doublesMaxTeams,
     numberOfTables: computedNumberOfTables,
@@ -773,6 +864,7 @@ function tournamentMetadataInputToModel(
     startDateTime: metadata.startDateTime,
     endDateTime: metadata.endDateTime,
     srrRounds: metadata.srrRounds,
+    numberOfGroups: metadata.numberOfGroups,
     singlesMaxParticipants: metadata.singlesMaxParticipants,
     doublesMaxTeams: metadata.doublesMaxTeams,
     numberOfTables: metadata.numberOfTables,
@@ -800,6 +892,7 @@ function defaultTournamentMetadataInput(): TournamentSetupMetadataInput {
     startDateTime,
     endDateTime,
     srrRounds: 7,
+    numberOfGroups: 4,
     singlesMaxParticipants,
     doublesMaxTeams,
     numberOfTables: singlesMaxParticipants / 2,
@@ -831,6 +924,7 @@ function tournamentMetadataToDto(
     start_date_time: metadata.startDateTime,
     end_date_time: metadata.endDateTime,
     srr_rounds: metadata.srrRounds,
+    number_of_groups: metadata.numberOfGroups,
     singles_max_participants: metadata.singlesMaxParticipants,
     doubles_max_teams: metadata.doublesMaxTeams,
     number_of_tables: metadata.numberOfTables,
@@ -1774,6 +1868,7 @@ function toMatchRecord(snapshot: FirebaseFirestore.DocumentSnapshot): MatchRecor
   return {
     id: toInt(data.id, toInt(snapshot.id, 0)),
     tournament_id: toOptionalInt(data.tournament_id ?? data.tournamentId),
+    group_number: toOptionalInt(data.group_number ?? data.groupNumber),
     round_number: toInt(data.round_number, 0),
     table_number: toInt(data.table_number, 0),
     player1_id: player1Id,
@@ -2150,6 +2245,478 @@ function lastSeedingGeneratedAt(rows: TournamentSeedingRowDto[]): string | null 
   return latest;
 }
 
+function parseTournamentGroupingMethod(
+  value: unknown,
+  fallback: TournamentGroupingMethod = 'interleaved',
+): TournamentGroupingMethod {
+  const normalized = toText(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized === 'interleaved' || normalized === 'snake') {
+    return normalized;
+  }
+  throw new HttpError(422, 'grouping method must be interleaved or snake.');
+}
+
+function tournamentGroupCountForGeneration(
+  tournament: TournamentModel,
+  seededCount: number,
+): number {
+  const configured = Math.trunc(tournament.metadata?.numberOfGroups ?? 4);
+  const base = Number.isFinite(configured) ? configured : 4;
+  const clamped = Math.max(2, Math.min(64, base));
+  if (seededCount <= 0) {
+    return clamped;
+  }
+  return Math.max(2, Math.min(clamped, seededCount));
+}
+
+function buildTournamentGroupRows(params: {
+  seededRows: TournamentSeedingModel[];
+  groupCount: number;
+  method: TournamentGroupingMethod;
+}): TournamentGroupUpsertInput[] {
+  const seedSortedRows = [...params.seededRows].sort((a, b) => a.seed - b.seed);
+  const rows: TournamentGroupUpsertInput[] = [];
+
+  for (let index = 0; index < seedSortedRows.length; index += 1) {
+    const row = seedSortedRows[index];
+    const groupIndex = index % params.groupCount;
+    const groupRow = Math.trunc(index / params.groupCount);
+    const effectiveGroupIndex =
+      params.method === 'snake' && groupRow % 2 == 1
+        ? params.groupCount - 1 - groupIndex
+        : groupIndex;
+    rows.push({
+      playerId: row.playerId,
+      seed: row.seed,
+      groupNumber: effectiveGroupIndex + 1,
+      groupCount: params.groupCount,
+      method: params.method,
+      displayName: row.displayName,
+      handle: row.handle,
+      state: row.state,
+      country: row.country,
+      emailId: row.emailId,
+      sourceType: row.sourceType,
+      rankingRank: row.rankingRank,
+      rankingYear: row.rankingYear,
+      rankingDescription: row.rankingDescription,
+    });
+  }
+  return rows;
+}
+
+function tournamentGroupRowDtoFromModel(row: TournamentGroupModel): TournamentGroupRowDto {
+  return {
+    seed: row.seed,
+    group_number: row.groupNumber,
+    group_count: row.groupCount,
+    method: row.method,
+    player_id: row.playerId,
+    display_name: row.displayName,
+    handle: row.handle,
+    state: row.state,
+    country: row.country,
+    email_id: row.emailId,
+    source_type: row.sourceType,
+    ranking_rank: row.rankingRank,
+    ranking_year: row.rankingYear,
+    ranking_description: row.rankingDescription,
+    updated_at: row.updatedAt,
+  };
+}
+
+function lastGroupsGeneratedAt(rows: TournamentGroupRowDto[]): string | null {
+  if (rows.length === 0) return null;
+  let latest = rows[0].updated_at;
+  for (let index = 1; index < rows.length; index += 1) {
+    const value = rows[index].updated_at;
+    if (Date.parse(value) > Date.parse(latest)) {
+      latest = value;
+    }
+  }
+  return latest;
+}
+
+function parseGroupNumber(
+  value: unknown,
+  fieldName = 'group_number',
+): number {
+  const groupNumber = parsePositiveInt(value, fieldName);
+  if (groupNumber > 256) {
+    throw new HttpError(422, `${fieldName} must be <= 256.`);
+  }
+  return groupNumber;
+}
+
+function parseRoundOnePairingMethod(
+  value: unknown,
+  fallback: RoundOnePairingMethod = 'adjacent',
+): RoundOnePairingMethod {
+  const normalized = toText(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized === 'adjacent') return 'adjacent';
+  if (normalized === 'top_vs_top' || normalized === 'toptop') {
+    return 'top_vs_top';
+  }
+  if (normalized === 'top_vs_bottom' || normalized === 'topbottom') {
+    return 'top_vs_bottom';
+  }
+  throw new HttpError(
+    422,
+    'round_one_method must be adjacent, top_vs_top, or top_vs_bottom.',
+  );
+}
+
+function assertTournamentSetupEditable(tournament: TournamentModel): void {
+  if (tournament.status === 'active' || tournament.status === 'completed') {
+    throw new HttpError(
+      409,
+      'Tournament setup is locked after match-up generation.',
+    );
+  }
+}
+
+interface GroupSwissPlayerState {
+  playerId: number;
+  seed: number;
+  displayName: string;
+  matchPoints: number;
+  totalScore: number;
+  concededScore: number;
+  opponentPoints: number;
+  opponents: Set<number>;
+}
+
+function swissPlayerComparator(
+  left: GroupSwissPlayerState,
+  right: GroupSwissPlayerState,
+): number {
+  const netLeft = left.totalScore - left.concededScore;
+  const netRight = right.totalScore - right.concededScore;
+  return (
+    right.matchPoints - left.matchPoints ||
+    right.opponentPoints - left.opponentPoints ||
+    netRight - netLeft ||
+    right.totalScore - left.totalScore ||
+    left.seed - right.seed ||
+    left.displayName.localeCompare(right.displayName, undefined, {
+      sensitivity: 'base',
+    })
+  );
+}
+
+function playersHavePlayed(
+  left: GroupSwissPlayerState,
+  right: GroupSwissPlayerState,
+): boolean {
+  return left.opponents.has(right.playerId) || right.opponents.has(left.playerId);
+}
+
+function perfectSwissMatching(
+  players: GroupSwissPlayerState[],
+): Array<[GroupSwissPlayerState, GroupSwissPlayerState]> | null {
+  if (players.length === 0) return [];
+  if (players.length % 2 === 1) return null;
+
+  let attempts = 0;
+  const maxAttempts = 200000;
+
+  const search = (
+    pool: GroupSwissPlayerState[],
+  ): Array<[GroupSwissPlayerState, GroupSwissPlayerState]> | null => {
+    attempts += 1;
+    if (attempts > maxAttempts) return null;
+    if (pool.length === 0) return [];
+
+    let pivotIndex = -1;
+    let pivotCandidates: number[] = [];
+    for (let i = 0; i < pool.length; i += 1) {
+      const candidates: number[] = [];
+      for (let j = 0; j < pool.length; j += 1) {
+        if (i === j) continue;
+        if (!playersHavePlayed(pool[i], pool[j])) {
+          candidates.push(j);
+        }
+      }
+      if (candidates.length === 0) return null;
+      if (pivotIndex === -1 || candidates.length < pivotCandidates.length) {
+        pivotIndex = i;
+        pivotCandidates = candidates;
+      }
+    }
+
+    if (pivotIndex < 0 || pivotCandidates.length === 0) {
+      return null;
+    }
+
+    pivotCandidates.sort((leftIndex, rightIndex) => {
+      const leftCandidate = pool[leftIndex];
+      const rightCandidate = pool[rightIndex];
+      const leftDegree = pool.reduce((count, entry, index) => {
+        if (index === pivotIndex || index === leftIndex) return count;
+        return !playersHavePlayed(leftCandidate, entry) ? count + 1 : count;
+      }, 0);
+      const rightDegree = pool.reduce((count, entry, index) => {
+        if (index === pivotIndex || index === rightIndex) return count;
+        return !playersHavePlayed(rightCandidate, entry) ? count + 1 : count;
+      }, 0);
+      return leftDegree - rightDegree;
+    });
+
+    const pivot = pool[pivotIndex];
+    for (const partnerIndex of pivotCandidates) {
+      const partner = pool[partnerIndex];
+      const nextPool: GroupSwissPlayerState[] = [];
+      for (let index = 0; index < pool.length; index += 1) {
+        if (index === pivotIndex || index === partnerIndex) continue;
+        nextPool.push(pool[index]);
+      }
+      const next = search(nextPool);
+      if (next != null) {
+        return [[pivot, partner], ...next];
+      }
+    }
+    return null;
+  };
+
+  return search(players);
+}
+
+function pairSwissPool(params: {
+  players: GroupSwissPlayerState[];
+}): {
+  pairs: Array<[GroupSwissPlayerState, GroupSwissPlayerState]>;
+  carry: GroupSwissPlayerState[];
+} {
+  const working = [...params.players];
+  const carry: GroupSwissPlayerState[] = [];
+  while (working.length > 0) {
+    if (working.length % 2 === 1) {
+      const floater = working.pop();
+      if (floater) {
+        carry.unshift(floater);
+      }
+    }
+    if (working.length === 0) break;
+
+    const paired = perfectSwissMatching(working);
+    if (paired != null) {
+      return {pairs: paired, carry};
+    }
+
+    const additionalFloater = working.pop();
+    if (additionalFloater == null) break;
+    carry.unshift(additionalFloater);
+  }
+  return {pairs: [], carry};
+}
+
+function buildRoundOnePairs(params: {
+  players: TournamentGroupModel[];
+  method: RoundOnePairingMethod;
+}): Array<[TournamentGroupModel, TournamentGroupModel]> {
+  const players = [...params.players].sort((a, b) => a.seed - b.seed);
+  if (players.length < 2) {
+    throw new HttpError(
+      422,
+      'At least 2 players are required to generate match-ups.',
+    );
+  }
+  if (players.length % 2 === 1) {
+    throw new HttpError(
+      422,
+      'Group player count must be even to generate pairings.',
+    );
+  }
+
+  const half = Math.floor(players.length / 2);
+  const pairs: Array<[TournamentGroupModel, TournamentGroupModel]> = [];
+  switch (params.method) {
+    case 'adjacent':
+      for (let index = 0; index < players.length; index += 2) {
+        pairs.push([players[index], players[index + 1]]);
+      }
+      return pairs;
+    case 'top_vs_top':
+      for (let index = 0; index < half; index += 1) {
+        pairs.push([players[index], players[index + half]]);
+      }
+      return pairs;
+    case 'top_vs_bottom':
+      for (let index = 0; index < half; index += 1) {
+        pairs.push([players[index], players[players.length - 1 - index]]);
+      }
+      return pairs;
+  }
+}
+
+function buildSwissPairs(params: {
+  players: TournamentGroupModel[];
+  historicalMatches: MatchRecord[];
+}): Array<[TournamentGroupModel, TournamentGroupModel]> {
+  const sortedPlayers = [...params.players].sort((a, b) => a.seed - b.seed);
+  const stateByPlayerId = new Map<number, GroupSwissPlayerState>();
+  for (const player of sortedPlayers) {
+    stateByPlayerId.set(player.playerId, {
+      playerId: player.playerId,
+      seed: player.seed,
+      displayName: player.displayName,
+      matchPoints: 0,
+      totalScore: 0,
+      concededScore: 0,
+      opponentPoints: 0,
+      opponents: new Set<number>(),
+    });
+  }
+
+  for (const match of params.historicalMatches) {
+    if (match.confirmed_score1 == null || match.confirmed_score2 == null) continue;
+    const left = stateByPlayerId.get(match.player1_id);
+    const right = stateByPlayerId.get(match.player2_id);
+    if (left == null || right == null) continue;
+
+    const [leftPoints, rightPoints] = matchPoints(
+      match.confirmed_score1,
+      match.confirmed_score2,
+    );
+    left.matchPoints += leftPoints;
+    right.matchPoints += rightPoints;
+    left.totalScore += match.confirmed_score1;
+    right.totalScore += match.confirmed_score2;
+    left.concededScore += match.confirmed_score2;
+    right.concededScore += match.confirmed_score1;
+    left.opponents.add(right.playerId);
+    right.opponents.add(left.playerId);
+  }
+
+  for (const player of stateByPlayerId.values()) {
+    let opponentPoints = 0;
+    for (const opponentId of player.opponents) {
+      opponentPoints += stateByPlayerId.get(opponentId)?.matchPoints ?? 0;
+    }
+    player.opponentPoints = opponentPoints;
+  }
+
+  const bracketByPoints = new Map<number, GroupSwissPlayerState[]>();
+  for (const player of stateByPlayerId.values()) {
+    const bucket = bracketByPoints.get(player.matchPoints) ?? [];
+    bucket.push(player);
+    bracketByPoints.set(player.matchPoints, bucket);
+  }
+  const bracketScores = [...bracketByPoints.keys()].sort((a, b) => b - a);
+
+  const resultPairs: Array<[GroupSwissPlayerState, GroupSwissPlayerState]> = [];
+  let carry: GroupSwissPlayerState[] = [];
+  for (const score of bracketScores) {
+    const bucket = [...(bracketByPoints.get(score) ?? [])].sort(
+      swissPlayerComparator,
+    );
+    const pool = [...carry, ...bucket].sort(swissPlayerComparator);
+    const paired = pairSwissPool({players: pool});
+    resultPairs.push(...paired.pairs);
+    carry = paired.carry;
+  }
+
+  if (carry.length > 0) {
+    if (carry.length % 2 === 1) {
+      throw new HttpError(
+        422,
+        'Unable to pair all players without repeats. Manual override required.',
+      );
+    }
+    const finalPairs = perfectSwissMatching(carry);
+    if (finalPairs == null) {
+      throw new HttpError(
+        422,
+        'Unable to pair all players without repeats. Manual override required.',
+      );
+    }
+    resultPairs.push(...finalPairs);
+  }
+
+  const modelByPlayerId = new Map<number, TournamentGroupModel>(
+    sortedPlayers.map((player) => [player.playerId, player]),
+  );
+  return resultPairs.map(([left, right]) => {
+    const leftModel = modelByPlayerId.get(left.playerId);
+    const rightModel = modelByPlayerId.get(right.playerId);
+    if (leftModel == null || rightModel == null) {
+      throw new HttpError(500, 'Unable to resolve players for Swiss pairing.');
+    }
+    return [leftModel, rightModel];
+  });
+}
+
+async function fetchTournamentGroupAssignments(
+  tournamentId: number,
+): Promise<Map<number, TournamentGroupModel[]>> {
+  const grouped = new Map<number, TournamentGroupModel[]>();
+  const rows = await tournamentGroupsRepository.listByTournament(tournamentId);
+  for (const row of rows) {
+    const bucket = grouped.get(row.groupNumber) ?? [];
+    bucket.push(row);
+    grouped.set(row.groupNumber, bucket);
+  }
+  for (const bucket of grouped.values()) {
+    bucket.sort((a, b) => a.seed - b.seed);
+  }
+  return grouped;
+}
+
+function groupMatchupSummary(params: {
+  groupNumber: number;
+  playerCount: number;
+  matches: MatchRecord[];
+  maxRounds: number;
+}): GroupMatchupSummaryDto {
+  const currentRound =
+    params.matches.length == 0
+      ? 0
+      : Math.max(...params.matches.map((match) => match.round_number));
+  const currentRoundMatches = currentRound == 0
+    ? []
+    : params.matches.filter((match) => match.round_number === currentRound);
+  const pendingMatches = currentRoundMatches.filter(
+    (match) => match.confirmed_score1 == null || match.confirmed_score2 == null,
+  ).length;
+  const completedMatches = currentRoundMatches.length - pendingMatches;
+  return {
+    group_number: params.groupNumber,
+    player_count: params.playerCount,
+    current_round: currentRound,
+    max_rounds: params.maxRounds,
+    pending_matches: pendingMatches,
+    completed_matches: completedMatches,
+  };
+}
+
+async function deleteMatchesByIds(matchIds: number[]): Promise<number> {
+  if (matchIds.length === 0) return 0;
+  const deletedIds = [...new Set(matchIds.map((id) => Math.trunc(id)))].filter(
+    (id) => id > 0,
+  );
+  if (deletedIds.length === 0) return 0;
+
+  await deleteDocumentRefs(
+    deletedIds.map((id) => db.collection(COLLECTIONS.matches).doc(String(id))),
+  );
+
+  const scoreSnapshot = await db.collection(COLLECTIONS.scores).get();
+  const scoreRefs = scoreSnapshot.docs
+    .filter((doc) => deletedIds.includes(toInt((doc.data() ?? {}).match_id, 0)))
+    .map((doc) => doc.ref);
+  await deleteDocumentRefs(scoreRefs);
+
+  const confirmations = await db.collection(COLLECTIONS.scoreConfirmations).get();
+  const confirmationRefs = confirmations.docs
+    .filter((doc) => deletedIds.includes(toInt((doc.data() ?? {}).match_id, 0)))
+    .map((doc) => doc.ref);
+  await deleteDocumentRefs(confirmationRefs);
+
+  return deletedIds.length;
+}
+
 function parseOrderedPlayerIds(rawValue: unknown): number[] {
   if (!Array.isArray(rawValue)) {
     throw new HttpError(422, 'ordered_player_ids must be an array.');
@@ -2274,6 +2841,7 @@ async function clearCollectionByTournamentId(
 async function deleteTournamentArtifacts(tournamentId: number): Promise<void> {
   await clearTournamentPlayerLinks(tournamentId);
   await clearCollectionByTournamentId(COLLECTIONS.tournamentSeedings, tournamentId);
+  await clearCollectionByTournamentId(COLLECTIONS.tournamentGroups, tournamentId);
   await clearCollectionByTournamentId(COLLECTIONS.rounds, tournamentId);
   await clearCollectionByTournamentId(COLLECTIONS.scores, tournamentId);
 
@@ -2862,6 +3430,7 @@ async function createUserWithHandle(params: {
 
 async function createMatch(params: {
   tournamentId: number;
+  groupNumber?: number | null;
   roundNumber: number;
   tableNumber: number;
   player1Id: number;
@@ -2873,6 +3442,8 @@ async function createMatch(params: {
     const match: MatchRecord = {
       id: nextMatchId,
       tournament_id: params.tournamentId,
+      group_number:
+        params.groupNumber == null ? null : Math.trunc(params.groupNumber),
       round_number: params.roundNumber,
       table_number: params.tableNumber,
       player1_id: params.player1Id,
@@ -3515,6 +4086,7 @@ async function fetchMatchDtos(
     return {
       id: match.id,
       tournament_id: match.tournament_id,
+      group_number: match.group_number,
       round_number: match.round_number,
       table_number: match.table_number,
       player1: {
@@ -3754,6 +4326,7 @@ async function fetchMatchDto(matchId: number, userId: number | null): Promise<Ma
   return {
     id: match.id,
     tournament_id: match.tournament_id,
+    group_number: match.group_number,
     round_number: match.round_number,
     table_number: match.table_number,
     player1: {
@@ -4081,6 +4654,7 @@ router.patch('/tournaments/:tournament_id', route(async (req, res) => {
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const existing = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(existing);
 
   const tournamentName = toText(
     req.body?.tournament_name ?? req.body?.name ?? existing.name,
@@ -4119,7 +4693,22 @@ router.patch('/tournaments/:tournament_id', route(async (req, res) => {
     throw new HttpError(404, 'Tournament not found.');
   }
   await tournamentSeedingsRepository.clearByTournament(tournamentId);
-  res.json(tournamentDtoFromModel(updated));
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
+  let tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_seeding',
+      status: 'pending',
+      now,
+    })) ?? updated;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournamentWithWorkflow;
+  res.json(tournamentDtoFromModel(tournamentWithWorkflow));
 }));
 
 router.patch('/tournaments/:tournament_id/workflow', route(async (req, res) => {
@@ -4147,7 +4736,8 @@ router.patch('/tournaments/:tournament_id/workflow', route(async (req, res) => {
 router.post('/tournaments/:tournament_id/ranking-selection', route(async (req, res) => {
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
-  await requireTournamentById(tournamentId);
+  const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
   const rankingYear = parseRankingYear(
     req.body?.ranking_year ?? req.body?.rankingYear ?? req.body?.year,
   );
@@ -4167,16 +4757,33 @@ router.post('/tournaments/:tournament_id/ranking-selection', route(async (req, r
     );
   }
 
+  const now = utcNow();
   const updated = await tournamentsRepository.selectNationalRankingYear({
     tournamentId,
     rankingYear,
     rankingDescription,
-    now: utcNow(),
+    now,
   });
   if (!updated) {
     throw new HttpError(404, 'Tournament not found.');
   }
-  res.json(tournamentDtoFromModel(updated));
+  await tournamentSeedingsRepository.clearByTournament(tournamentId);
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
+  let tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_seeding',
+      status: 'pending',
+      now,
+    })) ?? updated;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournamentWithWorkflow;
+  res.json(tournamentDtoFromModel(tournamentWithWorkflow));
 }));
 
 router.delete('/tournaments/:tournament_id', route(async (req, res) => {
@@ -4204,8 +4811,10 @@ router.delete('/tournaments/:tournament_id/players', route(async (req, res) => {
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
   const playersDeleted = await clearTournamentPlayerLinks(tournamentId);
   await tournamentSeedingsRepository.clearByTournament(tournamentId);
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
   let tournamentWithWorkflow =
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
@@ -4217,6 +4826,13 @@ router.delete('/tournaments/:tournament_id/players', route(async (req, res) => {
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
       stepKey: 'create_tournament_seeding',
+      status: 'pending',
+      now: utcNow(),
+    })) ?? tournamentWithWorkflow;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
       status: 'pending',
       now: utcNow(),
     })) ?? tournamentWithWorkflow;
@@ -4232,6 +4848,7 @@ router.post('/tournaments/:tournament_id/players/upload', route(async (req, res)
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
 
   const parsedPlayers = parseTournamentSetupPlayers(req.body?.players);
   if (tournament.metadata != null) {
@@ -4283,6 +4900,7 @@ router.post('/tournaments/:tournament_id/players/upload', route(async (req, res)
   await upsertTournamentPlayerLinks(tournamentId, uploadedPlayers);
   const players = await fetchTournamentPlayers(tournamentId);
   await tournamentSeedingsRepository.clearByTournament(tournamentId);
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
   let tournamentWithWorkflow =
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
@@ -4294,6 +4912,13 @@ router.post('/tournaments/:tournament_id/players/upload', route(async (req, res)
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
       stepKey: 'create_tournament_seeding',
+      status: 'pending',
+      now: utcNow(),
+    })) ?? tournamentWithWorkflow;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
       status: 'pending',
       now: utcNow(),
     })) ?? tournamentWithWorkflow;
@@ -4368,6 +4993,7 @@ router.post('/tournaments/:tournament_id/seeding/generate', route(async (req, re
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const context = await resolveTournamentSeedingContext(tournamentId);
+  assertTournamentSetupEditable(context.tournament);
   const now = utcNow();
 
   await tournamentSeedingsRepository.clearByTournament(tournamentId);
@@ -4376,14 +5002,22 @@ router.post('/tournaments/:tournament_id/seeding/generate', route(async (req, re
     rows: context.computedRows,
     now,
   });
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
 
-  const tournamentWithWorkflow =
+  let tournamentWithWorkflow =
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
       stepKey: 'create_tournament_seeding',
       status: 'completed',
       now,
     })) ?? context.tournament;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournamentWithWorkflow;
   const seededRows = await tournamentSeedingsRepository.listByTournament(tournamentId);
   const rowsDto = seededRows.map((row) => tournamentSeedingRowDtoFromModel(row));
   const response: TournamentSeedingSnapshotDto = {
@@ -4403,6 +5037,7 @@ router.patch('/tournaments/:tournament_id/seeding/order', route(async (req, res)
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const context = await resolveTournamentSeedingContext(tournamentId);
+  assertTournamentSetupEditable(context.tournament);
   const payload = (req.body ?? {}) as Record<string, unknown>;
   const orderedPlayerIds = parseOrderedPlayerIds(
     payload.ordered_player_ids ?? payload.orderedPlayerIds ?? payload.player_ids,
@@ -4428,14 +5063,22 @@ router.patch('/tournaments/:tournament_id/seeding/order', route(async (req, res)
       'No seeded rows found for this tournament. Generate seeding first.',
     );
   }
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
 
-  const tournamentWithWorkflow =
+  let tournamentWithWorkflow =
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
       stepKey: 'create_tournament_seeding',
       status: 'completed',
       now,
     })) ?? context.tournament;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournamentWithWorkflow;
   const rowsDto = seededRows.map((row) => tournamentSeedingRowDtoFromModel(row));
   const response: TournamentSeedingSnapshotDto = {
     tournament: tournamentDtoFromModel(tournamentWithWorkflow),
@@ -4454,22 +5097,371 @@ router.delete('/tournaments/:tournament_id/seeding', route(async (req, res) => {
   await requireAdminUser(req);
   const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
   const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
   const now = utcNow();
   const deletedRows = await tournamentSeedingsRepository.clearByTournament(
     tournamentId,
   );
-  const tournamentWithWorkflow =
+  const deletedGroupRows = await tournamentGroupsRepository.clearByTournament(
+    tournamentId,
+  );
+  let tournamentWithWorkflow =
     (await tournamentsRepository.updateWorkflowStepStatus({
       tournamentId,
       stepKey: 'create_tournament_seeding',
       status: 'pending',
       now,
     })) ?? tournament;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournamentWithWorkflow;
 
   res.json({
     tournament: tournamentDtoFromModel(tournamentWithWorkflow),
     deleted_rows: deletedRows,
+    deleted_group_rows: deletedGroupRows,
   });
+}));
+
+router.get('/tournaments/:tournament_id/groups', route(async (req, res) => {
+  await requireAdminUser(req);
+  const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
+  const tournament = await requireTournamentById(tournamentId);
+
+  const existingRows = await tournamentGroupsRepository.listByTournament(tournamentId);
+  if (existingRows.length > 0) {
+    const rowsDto = existingRows.map((row) => tournamentGroupRowDtoFromModel(row));
+    const response: TournamentGroupsSnapshotDto = {
+      tournament: tournamentDtoFromModel(tournament),
+      generated: true,
+      method: rowsDto[0].method,
+      group_count: rowsDto[0].group_count,
+      generated_at: lastGroupsGeneratedAt(rowsDto),
+      rows: rowsDto,
+    };
+    res.json(response);
+    return;
+  }
+
+  const seededRows = await tournamentSeedingsRepository.listByTournament(tournamentId);
+  const response: TournamentGroupsSnapshotDto = {
+    tournament: tournamentDtoFromModel(tournament),
+    generated: false,
+    method: null,
+    group_count: tournamentGroupCountForGeneration(tournament, seededRows.length),
+    generated_at: null,
+    rows: [],
+  };
+  res.json(response);
+}));
+
+router.post('/tournaments/:tournament_id/groups/generate', route(async (req, res) => {
+  await requireAdminUser(req);
+  const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
+  const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
+  const method = parseTournamentGroupingMethod(
+    req.body?.method ??
+      req.body?.grouping_method ??
+      req.body?.groupingMethod ??
+      req.query.method,
+  );
+
+  const seededRows = await tournamentSeedingsRepository.listByTournament(tournamentId);
+  if (seededRows.length === 0) {
+    throw new HttpError(
+      422,
+      'Generate tournament seeding before creating groups.',
+    );
+  }
+  const groupCount = tournamentGroupCountForGeneration(tournament, seededRows.length);
+  const generatedRows = buildTournamentGroupRows({
+    seededRows,
+    groupCount,
+    method,
+  });
+  const now = utcNow();
+  await tournamentGroupsRepository.clearByTournament(tournamentId);
+  await tournamentGroupsRepository.upsertRows({
+    tournamentId,
+    rows: generatedRows,
+    now,
+  });
+
+  let tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_seeding',
+      status: 'completed',
+      now,
+    })) ?? tournament;
+  tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'completed',
+      now,
+    })) ?? tournamentWithWorkflow;
+
+  const persistedRows = await tournamentGroupsRepository.listByTournament(tournamentId);
+  const rowsDto = persistedRows.map((row) => tournamentGroupRowDtoFromModel(row));
+  const response: TournamentGroupsSnapshotDto = {
+    tournament: tournamentDtoFromModel(tournamentWithWorkflow),
+    generated: true,
+    method,
+    group_count: groupCount,
+    generated_at: lastGroupsGeneratedAt(rowsDto) ?? now,
+    rows: rowsDto,
+  };
+  res.json(response);
+}));
+
+router.delete('/tournaments/:tournament_id/groups', route(async (req, res) => {
+  await requireAdminUser(req);
+  const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
+  const tournament = await requireTournamentById(tournamentId);
+  assertTournamentSetupEditable(tournament);
+  const now = utcNow();
+  const deletedRows = await tournamentGroupsRepository.clearByTournament(
+    tournamentId,
+  );
+  const tournamentWithWorkflow =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'create_tournament_groups',
+      status: 'pending',
+      now,
+    })) ?? tournament;
+  res.json({
+    tournament: tournamentDtoFromModel(tournamentWithWorkflow),
+    deleted_rows: deletedRows,
+  });
+}));
+
+router.post('/tournaments/:tournament_id/matchups/generate', route(async (req, res) => {
+  await requireAdminUser(req);
+  const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
+  const tournament = await requireTournamentById(tournamentId);
+  if (tournament.status === 'completed') {
+    throw new HttpError(409, 'Tournament is completed. Match-up generation is locked.');
+  }
+
+  const groupNumber = parseGroupNumber(
+    req.body?.group_number ?? req.body?.groupNumber ?? req.query.group_number,
+  );
+  const roundOneMethod = parseRoundOnePairingMethod(
+    req.body?.round_one_method ?? req.body?.roundOneMethod,
+  );
+  const groupedAssignments = await fetchTournamentGroupAssignments(tournamentId);
+  const groupPlayers = groupedAssignments.get(groupNumber) ?? [];
+  if (groupPlayers.length < 2) {
+    throw new HttpError(
+      422,
+      `No grouped players found for group ${groupNumber}. Create groups first.`,
+    );
+  }
+
+  const maxRounds = Math.max(1, Math.trunc(tournament.metadata?.srrRounds ?? 7));
+  const groupMatches = (await fetchAllMatches(tournamentId)).filter(
+    (match) => match.group_number === groupNumber,
+  );
+  const currentRound = groupMatches.length == 0
+    ? 0
+    : Math.max(...groupMatches.map((match) => match.round_number));
+  if (currentRound >= maxRounds) {
+    throw new HttpError(
+      422,
+      `All ${maxRounds} rounds are already generated for group ${groupNumber}.`,
+    );
+  }
+  if (currentRound > 0) {
+    const currentRoundHasPendingMatches = groupMatches.some(
+      (match) =>
+        match.round_number === currentRound &&
+        (match.confirmed_score1 == null || match.confirmed_score2 == null),
+    );
+    if (currentRoundHasPendingMatches) {
+      throw new HttpError(
+        409,
+        `Round ${currentRound} in group ${groupNumber} has pending scores. Complete it before generating next round.`,
+      );
+    }
+  }
+
+  const nextRound = currentRound + 1;
+  let methodUsed: RoundOnePairingMethod | 'swiss';
+  let pairs: Array<[TournamentGroupModel, TournamentGroupModel]>;
+  if (nextRound === 1) {
+    methodUsed = roundOneMethod;
+    pairs = buildRoundOnePairs({
+      players: groupPlayers,
+      method: roundOneMethod,
+    });
+  } else {
+    methodUsed = 'swiss';
+    pairs = buildSwissPairs({
+      players: groupPlayers,
+      historicalMatches: groupMatches,
+    });
+  }
+
+  if (pairs.length === 0) {
+    throw new HttpError(
+      422,
+      `Unable to generate match-ups for group ${groupNumber}.`,
+    );
+  }
+
+  for (let index = 0; index < pairs.length; index += 1) {
+    const [left, right] = pairs[index];
+    await createMatch({
+      tournamentId,
+      groupNumber,
+      roundNumber: nextRound,
+      tableNumber: index + 1,
+      player1Id: left.playerId,
+      player2Id: right.playerId,
+    });
+  }
+
+  const now = utcNow();
+  let tournamentForResponse = tournament;
+  if (tournament.status !== 'active') {
+    const allTournaments = await tournamentsRepository.list();
+    const currentlyActive = allTournaments.filter(
+      (entry) => entry.id !== tournamentId && entry.status === 'active',
+    );
+    for (const activeTournament of currentlyActive) {
+      await tournamentsRepository.update({
+        tournamentId: activeTournament.id,
+        name: activeTournament.name,
+        status: 'setup',
+        metadata: activeTournament.metadata ?? null,
+        selectedRankingYear: activeTournament.selectedRankingYear,
+        selectedRankingDescription: activeTournament.selectedRankingDescription,
+        workflow: activeTournament.workflow,
+        now,
+      });
+    }
+    tournamentForResponse =
+      (await tournamentsRepository.update({
+        tournamentId,
+        name: tournament.name,
+        status: 'active',
+        metadata: tournament.metadata ?? null,
+        selectedRankingYear: tournament.selectedRankingYear,
+        selectedRankingDescription: tournament.selectedRankingDescription,
+        workflow: tournament.workflow,
+        now,
+      })) ?? tournamentForResponse;
+  }
+  tournamentForResponse =
+    (await tournamentsRepository.updateWorkflowStepStatus({
+      tournamentId,
+      stepKey: 'generate_matchups_next_round',
+      status: 'completed',
+      now,
+    })) ?? tournamentForResponse;
+
+  await syncDomainReadModels(utcNow(), tournamentId);
+  const refreshedGroupMatches = (await fetchAllMatches(tournamentId)).filter(
+    (match) => match.group_number === groupNumber,
+  );
+  const response: MatchupGenerateResultDto = {
+    tournament: tournamentDtoFromModel(tournamentForResponse),
+    group_number: groupNumber,
+    round_number: nextRound,
+    method: methodUsed,
+    matches_created: pairs.length,
+    summary: groupMatchupSummary({
+      groupNumber,
+      playerCount: groupPlayers.length,
+      matches: refreshedGroupMatches,
+      maxRounds,
+    }),
+  };
+  res.json(response);
+}));
+
+router.delete('/tournaments/:tournament_id/matchups/current', route(async (req, res) => {
+  await requireAdminUser(req);
+  const tournamentId = parsePositiveInt(req.params.tournament_id, 'tournament_id');
+  const tournament = await requireTournamentById(tournamentId);
+  if (tournament.status === 'completed') {
+    throw new HttpError(409, 'Tournament is completed. Match-up deletion is locked.');
+  }
+  const groupNumber = parseGroupNumber(
+    req.query.group_number ?? req.body?.group_number ?? req.body?.groupNumber,
+  );
+  const groupedAssignments = await fetchTournamentGroupAssignments(tournamentId);
+  const groupPlayers = groupedAssignments.get(groupNumber) ?? [];
+  if (groupPlayers.length == 0) {
+    throw new HttpError(
+      422,
+      `No grouped players found for group ${groupNumber}.`,
+    );
+  }
+
+  const maxRounds = Math.max(1, Math.trunc(tournament.metadata?.srrRounds ?? 7));
+  const groupMatches = (await fetchAllMatches(tournamentId)).filter(
+    (match) => match.group_number === groupNumber,
+  );
+  if (groupMatches.length === 0) {
+    throw new HttpError(404, `No match-ups found for group ${groupNumber}.`);
+  }
+  const currentRound = Math.max(...groupMatches.map((match) => match.round_number));
+  const currentRoundMatches = groupMatches.filter(
+    (match) => match.round_number === currentRound,
+  );
+  const deletedMatches = await deleteMatchesByIds(
+    currentRoundMatches.map((match) => match.id),
+  );
+  await syncDomainReadModels(utcNow(), tournamentId);
+
+  const remainingMatches = await fetchAllMatches(tournamentId);
+  let tournamentForResponse = tournament;
+  if (remainingMatches.length === 0 && tournament.status === 'active') {
+    const now = utcNow();
+    tournamentForResponse =
+      (await tournamentsRepository.update({
+        tournamentId,
+        name: tournament.name,
+        status: 'setup',
+        metadata: tournament.metadata ?? null,
+        selectedRankingYear: tournament.selectedRankingYear,
+        selectedRankingDescription: tournament.selectedRankingDescription,
+        workflow: tournament.workflow,
+        now,
+      })) ?? tournamentForResponse;
+    tournamentForResponse =
+      (await tournamentsRepository.updateWorkflowStepStatus({
+        tournamentId,
+        stepKey: 'generate_matchups_next_round',
+        status: 'pending',
+        now,
+      })) ?? tournamentForResponse;
+  }
+
+  const refreshedGroupMatches = remainingMatches.filter(
+    (match) => match.group_number === groupNumber,
+  );
+  const response: MatchupDeleteResultDto = {
+    tournament: tournamentDtoFromModel(tournamentForResponse),
+    group_number: groupNumber,
+    deleted_round_number: currentRound,
+    deleted_matches: deletedMatches,
+    summary: groupMatchupSummary({
+      groupNumber,
+      playerCount: groupPlayers.length,
+      matches: refreshedGroupMatches,
+      maxRounds,
+    }),
+  };
+  res.json(response);
 }));
 
 router.get('/players', route(async (_req, res) => {
@@ -4618,7 +5610,14 @@ router.post('/rankings/delete', route(async (req, res) => {
         status: 'pending',
         now,
       });
+      await tournamentsRepository.updateWorkflowStepStatus({
+        tournamentId: tournament.id,
+        stepKey: 'create_tournament_groups',
+        status: 'pending',
+        now,
+      });
       await tournamentSeedingsRepository.clearByTournament(tournament.id);
+      await tournamentGroupsRepository.clearByTournament(tournament.id);
       affectedTournamentIds.push(tournament.id);
     }
   }

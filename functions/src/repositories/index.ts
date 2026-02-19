@@ -15,6 +15,8 @@ export {NationalRankingsRepository} from './national_rankings_repository';
 export {PlayersRepository} from './players_repository';
 export {RoundsRepository} from './rounds_repository';
 export {ScoresRepository} from './scores_repository';
+export {TournamentGroupsRepository} from './tournament_groups_repository';
+export type {TournamentGroupUpsertInput} from './tournament_groups_repository';
 export {TournamentSeedingsRepository} from './tournament_seedings_repository';
 export type {TournamentSeedingUpsertInput} from './tournament_seedings_repository';
 export {TournamentsRepository} from './tournaments_repository';

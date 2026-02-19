@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/models/srr_models.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Declares SRR domain/data models and JSON serialization mappings.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Encapsulates parsing and transport-shape conversion in one place.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'dart:convert';
 
 enum SrrMatchStatus { pending, disputed, confirmed }
@@ -269,6 +269,7 @@ class SrrPlayerLite {
 class SrrMatch {
   const SrrMatch({
     required this.id,
+    required this.groupNumber,
     required this.roundNumber,
     required this.tableNumber,
     required this.player1,
@@ -285,6 +286,7 @@ class SrrMatch {
 
   factory SrrMatch.fromJson(Map<String, dynamic> json) => SrrMatch(
     id: json['id'] as int,
+    groupNumber: (json['group_number'] as num?)?.toInt(),
     roundNumber: json['round_number'] as int,
     tableNumber: json['table_number'] as int,
     player1: SrrPlayerLite.fromJson(json['player1'] as Map<String, dynamic>),
@@ -311,6 +313,7 @@ class SrrMatch {
   );
 
   final int id;
+  final int? groupNumber;
   final int roundNumber;
   final int tableNumber;
   final SrrPlayerLite player1;
@@ -594,6 +597,7 @@ class SrrTournamentMetadata {
     required this.startDateTime,
     required this.endDateTime,
     required this.srrRounds,
+    required this.numberOfGroups,
     required this.singlesMaxParticipants,
     required this.doublesMaxTeams,
     required this.numberOfTables,
@@ -659,6 +663,16 @@ class SrrTournamentMetadata {
       String value => int.tryParse(value.trim()) ?? 7,
       _ => 7,
     };
+    final groupsRaw =
+        json['number_of_groups'] ??
+        json['tournament_number_of_groups'] ??
+        json['numberOfGroups'];
+    final parsedGroupCount = switch (groupsRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 4,
+      _ => 4,
+    };
     return SrrTournamentMetadata(
       type: type,
       subType: subType,
@@ -666,6 +680,7 @@ class SrrTournamentMetadata {
       startDateTime: startDateTime,
       endDateTime: endDateTime,
       srrRounds: parsedSrrRounds < 1 ? 7 : parsedSrrRounds,
+      numberOfGroups: parsedGroupCount < 2 ? 4 : parsedGroupCount,
       singlesMaxParticipants: json['singles_max_participants'] as int,
       doublesMaxTeams: json['doubles_max_teams'] as int,
       numberOfTables: json['number_of_tables'] as int,
@@ -690,6 +705,7 @@ class SrrTournamentMetadata {
   final DateTime startDateTime;
   final DateTime endDateTime;
   final int srrRounds;
+  final int numberOfGroups;
   final int singlesMaxParticipants;
   final int doublesMaxTeams;
   final int numberOfTables;
@@ -708,6 +724,7 @@ class SrrTournamentMetadata {
     'tournament_start_date_time': startDateTime.toUtc().toIso8601String(),
     'tournament_end_date_time': endDateTime.toUtc().toIso8601String(),
     'tournament_srr_rounds': srrRounds,
+    'tournament_number_of_groups': numberOfGroups,
     'tournament_limits_singles_max_participants': singlesMaxParticipants,
     'tournament_limits_doubles_max_teams': doublesMaxTeams,
     'tournament_number_of_tables': numberOfTables,
@@ -1408,6 +1425,334 @@ class SrrTournamentSeedingDeleteResult {
 
   final SrrTournamentRecord tournament;
   final int deletedRows;
+}
+
+class SrrTournamentGroupingMethod {
+  const SrrTournamentGroupingMethod._();
+
+  static const interleaved = 'interleaved';
+  static const snake = 'snake';
+
+  static const values = <String>[interleaved, snake];
+}
+
+class SrrTournamentGroupRow {
+  const SrrTournamentGroupRow({
+    required this.seed,
+    required this.groupNumber,
+    required this.groupCount,
+    required this.method,
+    required this.playerId,
+    required this.displayName,
+    required this.handle,
+    required this.state,
+    required this.country,
+    required this.emailId,
+    required this.sourceType,
+    required this.rankingRank,
+    required this.rankingYear,
+    required this.rankingDescription,
+    required this.updatedAt,
+  });
+
+  factory SrrTournamentGroupRow.fromJson(Map<String, dynamic> json) {
+    final seedRaw = json['seed'];
+    final seed = switch (seedRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    final groupNumberRaw = json['group_number'] ?? json['groupNumber'];
+    final groupNumber = switch (groupNumberRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    final groupCountRaw = json['group_count'] ?? json['groupCount'];
+    final groupCount = switch (groupCountRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    final playerIdRaw = json['player_id'] ?? json['playerId'];
+    final playerId = switch (playerIdRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    final rankingRankRaw = json['ranking_rank'] ?? json['rankingRank'];
+    final rankingRank = switch (rankingRankRaw) {
+      null => null,
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()),
+      _ => null,
+    };
+    final rankingYearRaw = json['ranking_year'] ?? json['rankingYear'];
+    final rankingYear = switch (rankingYearRaw) {
+      null => null,
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()),
+      _ => null,
+    };
+    final updatedAtRaw = (json['updated_at'] ?? json['updatedAt'] ?? '')
+        .toString()
+        .trim();
+    return SrrTournamentGroupRow(
+      seed: seed < 1 ? 0 : seed,
+      groupNumber: groupNumber < 1 ? 0 : groupNumber,
+      groupCount: groupCount < 1 ? 0 : groupCount,
+      method: (json['method'] ?? SrrTournamentGroupingMethod.interleaved)
+          .toString()
+          .trim()
+          .toLowerCase(),
+      playerId: playerId < 1 ? 0 : playerId,
+      displayName: (json['display_name'] ?? json['displayName'] ?? '')
+          .toString()
+          .trim(),
+      handle: (json['handle'] ?? '').toString().trim(),
+      state: (json['state'] ?? '').toString().trim(),
+      country: (json['country'] ?? '').toString().trim(),
+      emailId: (json['email_id'] ?? json['emailId'] ?? '').toString().trim(),
+      sourceType: (json['source_type'] ?? json['sourceType'] ?? 'new')
+          .toString()
+          .trim()
+          .toLowerCase(),
+      rankingRank: rankingRank,
+      rankingYear: rankingYear,
+      rankingDescription:
+          (json['ranking_description'] ?? json['rankingDescription'] ?? '')
+              .toString()
+              .trim(),
+      updatedAt: updatedAtRaw,
+    );
+  }
+
+  final int seed;
+  final int groupNumber;
+  final int groupCount;
+  final String method;
+  final int playerId;
+  final String displayName;
+  final String handle;
+  final String state;
+  final String country;
+  final String emailId;
+  final String sourceType;
+  final int? rankingRank;
+  final int? rankingYear;
+  final String rankingDescription;
+  final String updatedAt;
+}
+
+class SrrTournamentGroupsSnapshot {
+  const SrrTournamentGroupsSnapshot({
+    required this.tournament,
+    required this.generated,
+    required this.method,
+    required this.groupCount,
+    required this.generatedAt,
+    required this.rows,
+  });
+
+  factory SrrTournamentGroupsSnapshot.fromJson(Map<String, dynamic> json) {
+    final groupCountRaw = json['group_count'] ?? json['groupCount'];
+    final groupCount = switch (groupCountRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    final generatedAtRaw = (json['generated_at'] ?? json['generatedAt'])
+        ?.toString()
+        .trim();
+    final generatedAt = generatedAtRaw == null || generatedAtRaw.isEmpty
+        ? null
+        : DateTime.tryParse(generatedAtRaw);
+    final method = (json['method'] ?? '').toString().trim().toLowerCase();
+    return SrrTournamentGroupsSnapshot(
+      tournament: SrrTournamentRecord.fromJson(
+        json['tournament'] as Map<String, dynamic>,
+      ),
+      generated: json['generated'] as bool? ?? false,
+      method: SrrTournamentGroupingMethod.values.contains(method)
+          ? method
+          : null,
+      groupCount: groupCount < 2 ? 2 : groupCount,
+      generatedAt: generatedAt,
+      rows: (json['rows'] as List<dynamic>? ?? const <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(SrrTournamentGroupRow.fromJson)
+          .toList(growable: false),
+    );
+  }
+
+  final SrrTournamentRecord tournament;
+  final bool generated;
+  final String? method;
+  final int groupCount;
+  final DateTime? generatedAt;
+  final List<SrrTournamentGroupRow> rows;
+}
+
+class SrrTournamentGroupsDeleteResult {
+  const SrrTournamentGroupsDeleteResult({
+    required this.tournament,
+    required this.deletedRows,
+  });
+
+  factory SrrTournamentGroupsDeleteResult.fromJson(Map<String, dynamic> json) {
+    final deletedRowsRaw = json['deleted_rows'] ?? json['deletedRows'];
+    final deletedRows = switch (deletedRowsRaw) {
+      int value => value,
+      num value => value.toInt(),
+      String value => int.tryParse(value.trim()) ?? 0,
+      _ => 0,
+    };
+    return SrrTournamentGroupsDeleteResult(
+      tournament: SrrTournamentRecord.fromJson(
+        json['tournament'] as Map<String, dynamic>,
+      ),
+      deletedRows: deletedRows < 0 ? 0 : deletedRows,
+    );
+  }
+
+  final SrrTournamentRecord tournament;
+  final int deletedRows;
+}
+
+class SrrGroupMatchupSummary {
+  const SrrGroupMatchupSummary({
+    required this.groupNumber,
+    required this.playerCount,
+    required this.currentRound,
+    required this.maxRounds,
+    required this.pendingMatches,
+    required this.completedMatches,
+  });
+
+  factory SrrGroupMatchupSummary.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      return switch (value) {
+        int v => v,
+        num v => v.toInt(),
+        String v => int.tryParse(v.trim()) ?? 0,
+        _ => 0,
+      };
+    }
+
+    return SrrGroupMatchupSummary(
+      groupNumber: parseInt(json['group_number'] ?? json['groupNumber']),
+      playerCount: parseInt(json['player_count'] ?? json['playerCount']),
+      currentRound: parseInt(json['current_round'] ?? json['currentRound']),
+      maxRounds: parseInt(json['max_rounds'] ?? json['maxRounds']),
+      pendingMatches: parseInt(
+        json['pending_matches'] ?? json['pendingMatches'],
+      ),
+      completedMatches: parseInt(
+        json['completed_matches'] ?? json['completedMatches'],
+      ),
+    );
+  }
+
+  final int groupNumber;
+  final int playerCount;
+  final int currentRound;
+  final int maxRounds;
+  final int pendingMatches;
+  final int completedMatches;
+}
+
+class SrrMatchupGenerateResult {
+  const SrrMatchupGenerateResult({
+    required this.tournament,
+    required this.groupNumber,
+    required this.roundNumber,
+    required this.method,
+    required this.matchesCreated,
+    required this.summary,
+  });
+
+  factory SrrMatchupGenerateResult.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      return switch (value) {
+        int v => v,
+        num v => v.toInt(),
+        String v => int.tryParse(v.trim()) ?? 0,
+        _ => 0,
+      };
+    }
+
+    return SrrMatchupGenerateResult(
+      tournament: SrrTournamentRecord.fromJson(
+        json['tournament'] as Map<String, dynamic>,
+      ),
+      groupNumber: parseInt(json['group_number'] ?? json['groupNumber']),
+      roundNumber: parseInt(json['round_number'] ?? json['roundNumber']),
+      method: (json['method'] ?? '').toString().trim().toLowerCase(),
+      matchesCreated: parseInt(
+        json['matches_created'] ?? json['matchesCreated'],
+      ),
+      summary: SrrGroupMatchupSummary.fromJson(
+        (json['summary'] as Map<String, dynamic>? ?? const {}),
+      ),
+    );
+  }
+
+  final SrrTournamentRecord tournament;
+  final int groupNumber;
+  final int roundNumber;
+  final String method;
+  final int matchesCreated;
+  final SrrGroupMatchupSummary summary;
+}
+
+class SrrMatchupDeleteResult {
+  const SrrMatchupDeleteResult({
+    required this.tournament,
+    required this.groupNumber,
+    required this.deletedRoundNumber,
+    required this.deletedMatches,
+    required this.summary,
+  });
+
+  factory SrrMatchupDeleteResult.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      return switch (value) {
+        int v => v,
+        num v => v.toInt(),
+        String v => int.tryParse(v.trim()) ?? 0,
+        _ => 0,
+      };
+    }
+
+    return SrrMatchupDeleteResult(
+      tournament: SrrTournamentRecord.fromJson(
+        json['tournament'] as Map<String, dynamic>,
+      ),
+      groupNumber: parseInt(json['group_number'] ?? json['groupNumber']),
+      deletedRoundNumber: parseInt(
+        json['deleted_round_number'] ?? json['deletedRoundNumber'],
+      ),
+      deletedMatches: parseInt(
+        json['deleted_matches'] ?? json['deletedMatches'],
+      ),
+      summary: SrrGroupMatchupSummary.fromJson(
+        (json['summary'] as Map<String, dynamic>? ?? const {}),
+      ),
+    );
+  }
+
+  final SrrTournamentRecord tournament;
+  final int groupNumber;
+  final int deletedRoundNumber;
+  final int deletedMatches;
+  final SrrGroupMatchupSummary summary;
 }
 
 class SrrTournamentSetupResult {

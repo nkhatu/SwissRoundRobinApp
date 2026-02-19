@@ -201,6 +201,13 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
     payload.srrRounds ??
     payload.tournament_srr_rounds;
   const srrRounds = srrRoundsRaw == null ? 7 : asInt(srrRoundsRaw);
+  const numberOfGroupsRaw =
+    payload.number_of_groups ??
+    payload.numberOfGroups ??
+    payload.tournament_number_of_groups;
+  const numberOfGroups = numberOfGroupsRaw == null
+    ? 4
+    : asInt(numberOfGroupsRaw);
   const singlesMaxParticipants = asInt(
     payload.singles_max_participants ?? payload.singlesMaxParticipants,
   );
@@ -213,6 +220,7 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
     singlesMaxParticipants < 2 ||
     doublesMaxTeams < 2 ||
     srrRounds < 1 ||
+    numberOfGroups < 2 ||
     numberOfTables < 1 ||
     roundTimeLimitMinutes < 1
   ) {
@@ -226,6 +234,7 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
     startDateTime,
     endDateTime,
     srrRounds,
+    numberOfGroups,
     singlesMaxParticipants,
     doublesMaxTeams,
     numberOfTables,
@@ -256,6 +265,7 @@ function toFirestoreTournamentMetadata(
     start_date_time: metadata.startDateTime,
     end_date_time: metadata.endDateTime,
     srr_rounds: metadata.srrRounds,
+    number_of_groups: metadata.numberOfGroups,
     singles_max_participants: metadata.singlesMaxParticipants,
     doubles_max_teams: metadata.doublesMaxTeams,
     number_of_tables: metadata.numberOfTables,

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/main.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Bootstraps the app, initializes Firebase, and wires the full route graph.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Delegates feature behavior to page modules and repository-backed services.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -30,6 +30,7 @@ import 'src/ui/srr_home_page.dart';
 import 'src/ui/srr_privacy_page.dart';
 import 'src/ui/srr_register_page.dart';
 import 'src/ui/srr_ranking_upload_page.dart';
+import 'src/ui/srr_tournament_groups_page.dart';
 import 'src/ui/srr_round_matchup_page.dart';
 import 'src/ui/srr_routes.dart';
 import 'src/ui/srr_settings_page.dart';
@@ -198,6 +199,20 @@ class _SrrTournamentAppState extends State<SrrTournamentApp> {
                 initialTournamentId: initialTournamentId,
               );
             },
+            SrrRoutes.tournamentGroups: (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              final initialTournamentId =
+                  args is SrrTournamentGroupsPageArguments
+                  ? args.tournamentId
+                  : null;
+              return SrrTournamentGroupsPage(
+                appState: _appState,
+                apiClient: widget.dependencies.apiClient,
+                tournamentRepository: widget.dependencies.tournamentRepository,
+                displayPreferencesController: _displayPreferencesController,
+                initialTournamentId: initialTournamentId,
+              );
+            },
             SrrRoutes.genericUpload: (_) => SrrUploadPage(
               appState: _appState,
               apiClient: widget.dependencies.apiClient,
@@ -208,6 +223,7 @@ class _SrrTournamentAppState extends State<SrrTournamentApp> {
             SrrRoutes.roundMatchup: (_) => SrrRoundMatchupPage(
               appState: _appState,
               apiClient: widget.dependencies.apiClient,
+              tournamentRepository: widget.dependencies.tournamentRepository,
             ),
             SrrRoutes.completeProfile: (_) => SrrCompleteProfilePage(
               appState: _appState,

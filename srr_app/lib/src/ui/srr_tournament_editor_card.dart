@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_tournament_editor_card.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Renders reusable tournament form controls for create/edit operations.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Keeps field-level form concerns isolated from page-level orchestration.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:flutter/material.dart';
 
 import '../models/srr_models.dart';
@@ -53,6 +53,8 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
   final TextEditingController _roundTimeLimitMinutesController =
       TextEditingController();
   final TextEditingController _srrRoundsController = TextEditingController();
+  final TextEditingController _numberOfGroupsController =
+      TextEditingController();
   final TextEditingController _tournamentVenueController =
       TextEditingController();
   final TextEditingController _tournamentDirectorController =
@@ -90,6 +92,7 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
     _doublesMaxTeamsController.dispose();
     _roundTimeLimitMinutesController.dispose();
     _srrRoundsController.dispose();
+    _numberOfGroupsController.dispose();
     _tournamentVenueController.dispose();
     _tournamentDirectorController.dispose();
     _chiefRefereeFirstNameController.dispose();
@@ -124,6 +127,7 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
     _roundTimeLimitMinutesController.text =
         '${metadata?.roundTimeLimitMinutes ?? 30}';
     _srrRoundsController.text = '${metadata?.srrRounds ?? 7}';
+    _numberOfGroupsController.text = '${metadata?.numberOfGroups ?? 4}';
     _tournamentVenueController.text = metadata?.venueName ?? '';
     _tournamentDirectorController.text = metadata?.directorName ?? '';
     _chiefRefereeFirstNameController.text =
@@ -206,6 +210,20 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
         'No. of SRR rounds must be an integer between 1 and 200.',
       );
     }
+    final numberOfGroups = int.tryParse(_numberOfGroupsController.text.trim());
+    if (numberOfGroups == null || numberOfGroups < 2 || numberOfGroups > 64) {
+      throw const FormatException(
+        'No. of groups must be an integer between 2 and 64.',
+      );
+    }
+    final participantLimit = _tournamentSubType == 'singles'
+        ? singlesMaxParticipants
+        : doublesMaxTeams;
+    if (numberOfGroups > participantLimit) {
+      throw FormatException(
+        'No. of groups cannot exceed participant limit ($participantLimit).',
+      );
+    }
 
     final venueName = _tournamentVenueController.text.trim();
     if (venueName.length < 2) {
@@ -251,6 +269,7 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
       startDateTime: _tournamentStartDateTime.toUtc(),
       endDateTime: _tournamentEndDateTime.toUtc(),
       srrRounds: srrRounds,
+      numberOfGroups: numberOfGroups,
       singlesMaxParticipants: singlesMaxParticipants,
       doublesMaxTeams: doublesMaxTeams,
       numberOfTables: numberOfTables,
@@ -527,6 +546,17 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
                     decoration: const InputDecoration(
                       labelText: 'No. of SRR rounds',
                       hintText: '1 - 200',
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    controller: _numberOfGroupsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'No. of groups',
+                      hintText: '2 - 64',
                     ),
                   ),
                 ),

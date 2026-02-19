@@ -96,6 +96,7 @@ export interface TournamentMetadataModel {
   startDateTime: string;
   endDateTime: string;
   srrRounds: number;
+  numberOfGroups: number;
   singlesMaxParticipants: number;
   doublesMaxTeams: number;
   numberOfTables: number;
@@ -125,6 +126,7 @@ export type TournamentSeedingSourceType =
   | 'international'
   | 'new';
 export type TournamentSeedingMatchedBy = 'email' | 'name' | 'none';
+export type TournamentGroupingMethod = 'interleaved' | 'snake';
 
 export interface TournamentSeedingModel {
   id: string;
@@ -142,6 +144,27 @@ export interface TournamentSeedingModel {
   country: string | null;
   emailId: string | null;
   isManual: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TournamentGroupModel {
+  id: string;
+  tournamentId: number;
+  playerId: number;
+  seed: number;
+  groupNumber: number;
+  groupCount: number;
+  method: TournamentGroupingMethod;
+  displayName: string;
+  handle: string;
+  state: string | null;
+  country: string | null;
+  emailId: string | null;
+  sourceType: TournamentSeedingSourceType;
+  rankingRank: number | null;
+  rankingYear: number | null;
+  rankingDescription: string | null;
   createdAt: string;
   updatedAt: string;
 }

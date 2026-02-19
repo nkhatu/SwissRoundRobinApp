@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/repositories/srr_tournament_repository.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Provides tournament repository operations for setup, seeding, players, and rankings.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Wraps API client endpoints into typed operations used by admin workflows.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import '../api/srr_api_client.dart';
 import '../models/srr_models.dart';
 
@@ -150,5 +150,49 @@ class SrrTournamentRepository {
     required int tournamentId,
   }) {
     return _apiClient.deleteTournamentSeeding(tournamentId: tournamentId);
+  }
+
+  Future<SrrTournamentGroupsSnapshot> fetchTournamentGroups({
+    required int tournamentId,
+  }) {
+    return _apiClient.fetchTournamentGroups(tournamentId: tournamentId);
+  }
+
+  Future<SrrTournamentGroupsSnapshot> generateTournamentGroups({
+    required int tournamentId,
+    required String method,
+  }) {
+    return _apiClient.generateTournamentGroups(
+      tournamentId: tournamentId,
+      method: method,
+    );
+  }
+
+  Future<SrrTournamentGroupsDeleteResult> deleteTournamentGroups({
+    required int tournamentId,
+  }) {
+    return _apiClient.deleteTournamentGroups(tournamentId: tournamentId);
+  }
+
+  Future<SrrMatchupGenerateResult> generateTournamentGroupMatchups({
+    required int tournamentId,
+    required int groupNumber,
+    required String roundOneMethod,
+  }) {
+    return _apiClient.generateTournamentGroupMatchups(
+      tournamentId: tournamentId,
+      groupNumber: groupNumber,
+      roundOneMethod: roundOneMethod,
+    );
+  }
+
+  Future<SrrMatchupDeleteResult> deleteCurrentTournamentGroupMatchups({
+    required int tournamentId,
+    required int groupNumber,
+  }) {
+    return _apiClient.deleteCurrentTournamentGroupMatchups(
+      tournamentId: tournamentId,
+      groupNumber: groupNumber,
+    );
   }
 }

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_tournament_setup_page.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Manages tournament catalog, workflow steps, and setup/editing operations.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Delegates tournament persistence and workflow updates to repository APIs.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +22,7 @@ import 'srr_page_scaffold.dart';
 import 'srr_routes.dart';
 import 'srr_split_action_button.dart';
 import 'srr_tournament_editor_card.dart';
+import 'srr_tournament_groups_page.dart';
 import 'srr_tournament_seeding_page.dart';
 import 'srr_upload_page.dart';
 
@@ -340,6 +341,160 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
     }
   }
 
+  Future<int?> _promptGroupCount({
+    required int initialValue,
+    required int participantLimit,
+  }) async {
+    final controller = TextEditingController(text: '$initialValue');
+    String? localError;
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Set No. of Groups'),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Allowed range: 2 - 64 and cannot exceed participant limit ($participantLimit).',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'No. of groups',
+                        hintText: '2 - 64',
+                      ),
+                    ),
+                    if (localError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        localError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: SrrSplitActionButton(
+                    label: 'Apply',
+                    variant: SrrSplitActionButtonVariant.filled,
+                    leadingIcon: Icons.check,
+                    onPressed: () {
+                      final parsed = int.tryParse(controller.text.trim());
+                      if (parsed == null || parsed < 2 || parsed > 64) {
+                        setDialogState(() {
+                          localError =
+                              'No. of groups must be an integer between 2 and 64.';
+                        });
+                        return;
+                      }
+                      if (parsed > participantLimit) {
+                        setDialogState(() {
+                          localError =
+                              'No. of groups cannot exceed participant limit ($participantLimit).';
+                        });
+                        return;
+                      }
+                      Navigator.of(context).pop(parsed);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _setSelectedTournamentGroupCount() async {
+    final selected = _selectedTournament;
+    if (selected == null || _busy) return;
+    final metadata = selected.metadata;
+    if (metadata == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tournament metadata is unavailable.')),
+      );
+      return;
+    }
+
+    final participantLimit = metadata.subType == 'singles'
+        ? metadata.singlesMaxParticipants
+        : metadata.doublesMaxTeams;
+    final requestedGroupCount = await _promptGroupCount(
+      initialValue: metadata.numberOfGroups,
+      participantLimit: participantLimit,
+    );
+    if (requestedGroupCount == null || !mounted) return;
+
+    final updatedMetadata = SrrTournamentMetadata(
+      type: metadata.type,
+      subType: metadata.subType,
+      strength: metadata.strength,
+      startDateTime: metadata.startDateTime,
+      endDateTime: metadata.endDateTime,
+      srrRounds: metadata.srrRounds,
+      numberOfGroups: requestedGroupCount,
+      singlesMaxParticipants: metadata.singlesMaxParticipants,
+      doublesMaxTeams: metadata.doublesMaxTeams,
+      numberOfTables: metadata.numberOfTables,
+      roundTimeLimitMinutes: metadata.roundTimeLimitMinutes,
+      venueName: metadata.venueName,
+      directorName: metadata.directorName,
+      referees: metadata.referees,
+      chiefReferee: metadata.chiefReferee,
+      category: metadata.category,
+      subCategory: metadata.subCategory,
+    );
+
+    setState(() => _busy = true);
+    try {
+      final updated = await widget.tournamentRepository.updateTournament(
+        tournamentId: selected.id,
+        tournamentName: selected.name,
+        status: selected.status,
+        metadata: updatedMetadata,
+      );
+      await _loadTournaments(
+        preferredTournamentId: updated.id,
+        showLoading: false,
+      );
+      if (!mounted) return;
+      setState(() => _lastRefresh = DateTime.now());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No. of groups updated to $requestedGroupCount for ${updated.name}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   Future<void> _createTournament() async {
     if (_busy) return;
     final name = await _promptCreateTournamentName();
@@ -383,7 +538,9 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
   }) async {
     final selectedTournament = _selectedTournament;
     if (selectedTournament == null) return;
-    if (isCompleted) {
+    final requiresEditPrompt =
+        isCompleted && step.key != 'create_tournament_groups';
+    if (requiresEditPrompt) {
       final shouldEdit = await _promptWorkflowEdit(step.title);
       if (shouldEdit != true || !mounted) return;
     }
@@ -429,6 +586,21 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
           context,
           SrrRoutes.tournamentSeeding,
           arguments: SrrTournamentSeedingPageArguments(
+            tournamentId: selectedTournament.id,
+          ),
+        );
+        if (mounted) {
+          await _loadTournaments(
+            preferredTournamentId: selectedTournament.id,
+            showLoading: false,
+          );
+        }
+        return;
+      case 'create_tournament_groups':
+        await Navigator.pushNamed(
+          context,
+          SrrRoutes.tournamentGroups,
+          arguments: SrrTournamentGroupsPageArguments(
             tournamentId: selectedTournament.id,
           ),
         );
@@ -1278,6 +1450,15 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
               variant: SrrSplitActionButtonVariant.outlined,
               leadingIcon: Icons.edit,
               onPressed: _busy ? null : _editSelectedTournament,
+            ),
+          ),
+          SizedBox(
+            width: 210,
+            child: SrrSplitActionButton(
+              label: 'Set Groups',
+              variant: SrrSplitActionButtonVariant.outlined,
+              leadingIcon: Icons.group_work,
+              onPressed: _busy ? null : _setSelectedTournamentGroupCount,
             ),
           ),
           SizedBox(

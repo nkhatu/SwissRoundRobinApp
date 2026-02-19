@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/api/srr_api_client.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Handles authenticated HTTP calls to SRR backend APIs with typed parsing.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Exposes domain-specific operations consumed by repositories and UI flows.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'dart:async';
 import 'dart:convert';
 
@@ -394,6 +394,72 @@ class SrrApiClient extends ChangeNotifier {
     return SrrTournamentSeedingDeleteResult.fromJson(
       decodeObject(response.body),
     );
+  }
+
+  Future<SrrTournamentGroupsSnapshot> fetchTournamentGroups({
+    required int tournamentId,
+  }) async {
+    final response = await _send(
+      'GET',
+      '/tournaments/$tournamentId/groups',
+      auth: true,
+    );
+    return SrrTournamentGroupsSnapshot.fromJson(decodeObject(response.body));
+  }
+
+  Future<SrrTournamentGroupsSnapshot> generateTournamentGroups({
+    required int tournamentId,
+    required String method,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/tournaments/$tournamentId/groups/generate',
+      auth: true,
+      body: <String, dynamic>{'method': method.trim().toLowerCase()},
+    );
+    return SrrTournamentGroupsSnapshot.fromJson(decodeObject(response.body));
+  }
+
+  Future<SrrTournamentGroupsDeleteResult> deleteTournamentGroups({
+    required int tournamentId,
+  }) async {
+    final response = await _send(
+      'DELETE',
+      '/tournaments/$tournamentId/groups',
+      auth: true,
+    );
+    return SrrTournamentGroupsDeleteResult.fromJson(
+      decodeObject(response.body),
+    );
+  }
+
+  Future<SrrMatchupGenerateResult> generateTournamentGroupMatchups({
+    required int tournamentId,
+    required int groupNumber,
+    required String roundOneMethod,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/tournaments/$tournamentId/matchups/generate',
+      auth: true,
+      body: <String, dynamic>{
+        'group_number': groupNumber,
+        'round_one_method': roundOneMethod.trim().toLowerCase(),
+      },
+    );
+    return SrrMatchupGenerateResult.fromJson(decodeObject(response.body));
+  }
+
+  Future<SrrMatchupDeleteResult> deleteCurrentTournamentGroupMatchups({
+    required int tournamentId,
+    required int groupNumber,
+  }) async {
+    final response = await _send(
+      'DELETE',
+      '/tournaments/$tournamentId/matchups/current?group_number=$groupNumber',
+      auth: true,
+    );
+    return SrrMatchupDeleteResult.fromJson(decodeObject(response.body));
   }
 
   Future<List<SrrPlayerLite>> fetchTournamentPlayers(int tournamentId) async {
