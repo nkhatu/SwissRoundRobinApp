@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_markdown_document_page.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Loads markdown assets and renders legal/support document content pages.
 // Architecture:
@@ -9,12 +9,13 @@
 // - Decouples document presentation from individual legal/support page wrappers.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../config/srr_app_config.dart';
 import 'srr_page_scaffold.dart';
 
 class SrrMarkdownDocumentPage extends StatefulWidget {
@@ -52,7 +53,11 @@ class _SrrMarkdownDocumentPageState extends State<SrrMarkdownDocumentPage> {
       _error = null;
     });
     try {
-      final content = await rootBundle.loadString(widget.assetPath);
+      final raw = await rootBundle.loadString(widget.assetPath);
+      final content = raw
+          .replaceAll('{{SUPPORT_EMAIL}}', SrrAppConfig.supportEmail)
+          .replaceAll('{{PUBLIC_DOMAIN}}', SrrAppConfig.publicDomain)
+          .replaceAll('support@example.com', SrrAppConfig.supportEmail);
       if (!mounted) return;
       setState(() => _markdown = content);
     } catch (error) {

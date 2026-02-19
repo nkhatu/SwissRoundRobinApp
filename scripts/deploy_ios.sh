@@ -26,6 +26,8 @@ IOS_CODESIGN="${IOS_CODESIGN:-1}" # 1 to sign, 0 to disable signing
 IOS_DEVICE_ID="${IOS_DEVICE_ID:-}"
 IOS_EXPORT_OPTIONS_PLIST="${IOS_EXPORT_OPTIONS_PLIST:-}"
 SRR_API_URL="${SRR_API_URL:-https://example.com/api}"
+SRR_SUPPORT_EMAIL="${SRR_SUPPORT_EMAIL:-support@example.com}"
+SRR_PUBLIC_DOMAIN="${SRR_PUBLIC_DOMAIN:-example.com}"
 
 GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}"
 GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
@@ -53,11 +55,19 @@ if [[ "$IOS_TARGET" == "ipa" && "$IOS_BUILD_MODE" == "debug" ]]; then
   exit 1
 fi
 
+if [[ "$SRR_SUPPORT_EMAIL" == "support@example.com" ]] ||
+   [[ "$SRR_PUBLIC_DOMAIN" == "example.com" ]]; then
+  echo "Set SRR_SUPPORT_EMAIL and SRR_PUBLIC_DOMAIN before running deploy_ios.sh."
+  exit 1
+fi
+
 cd "$APP_DIR"
 flutter pub get
 
 define_args=(
   "--dart-define=SRR_API_URL=$SRR_API_URL"
+  "--dart-define=SRR_SUPPORT_EMAIL=$SRR_SUPPORT_EMAIL"
+  "--dart-define=SRR_PUBLIC_DOMAIN=$SRR_PUBLIC_DOMAIN"
 )
 
 if [[ -n "$GOOGLE_WEB_CLIENT_ID" ]]; then

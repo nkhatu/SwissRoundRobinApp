@@ -19,6 +19,7 @@ import '../models/srr_models.dart';
 import '../repositories/srr_tournament_repository.dart';
 import '../theme/srr_display_preferences_controller.dart';
 import 'srr_page_scaffold.dart';
+import 'srr_round_matchup_page.dart';
 import 'srr_routes.dart';
 import 'srr_split_action_button.dart';
 import 'srr_tournament_editor_card.dart';
@@ -612,7 +613,13 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
         }
         return;
       case 'generate_matchups_next_round':
-        await Navigator.pushNamed(context, SrrRoutes.roundMatchup);
+        await Navigator.pushNamed(
+          context,
+          SrrRoutes.roundMatchup,
+          arguments: SrrRoundMatchupPageArguments(
+            tournamentId: selectedTournament.id,
+          ),
+        );
         if (mounted) {
           await _loadTournaments(
             preferredTournamentId: selectedTournament.id,
@@ -1507,7 +1514,13 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
           IconButton(
             tooltip: 'Round Matchup',
             onPressed: () {
-              Navigator.pushNamed(context, SrrRoutes.roundMatchup);
+              Navigator.pushNamed(
+                context,
+                SrrRoutes.roundMatchup,
+                arguments: SrrRoundMatchupPageArguments(
+                  tournamentId: _selectedTournament?.id,
+                ),
+              );
             },
             icon: const Icon(Icons.grid_view),
           ),

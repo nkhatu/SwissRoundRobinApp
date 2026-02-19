@@ -36,4 +36,4 @@ We apply technical and administrative controls to protect account and tournament
 
 ## Contact
 
-For privacy questions, contact: support@example.com
+For privacy questions, contact: {{SUPPORT_EMAIL}}

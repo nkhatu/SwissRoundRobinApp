@@ -17,6 +17,7 @@ import '../api/srr_api_client.dart';
 import '../models/srr_models.dart';
 import '../repositories/srr_tournament_repository.dart';
 import '../services/srr_country_iso.dart';
+import '../services/srr_tournament_labels.dart';
 import '../theme/srr_display_preferences_controller.dart';
 import 'srr_page_scaffold.dart';
 import 'srr_routes.dart';
@@ -92,7 +93,9 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
           tournaments.every((entry) => entry.id != tournamentId)) {
         tournamentId = null;
       }
-      tournamentId ??= tournaments.isEmpty ? null : tournaments.first.id;
+      if (tournamentId == null && widget.initialTournamentId == null) {
+        tournamentId = tournaments.isEmpty ? null : tournaments.first.id;
+      }
 
       SrrTournamentGroupsSnapshot? snapshot;
       String? error;
@@ -508,6 +511,7 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
     final user = widget.apiClient.currentUserSnapshot;
     final isAdmin = user?.isAdmin ?? false;
     final selectedTournament = _selectedTournament;
+    final isTournamentSelectionLocked = widget.initialTournamentId != null;
 
     return SrrPageScaffold(
       title: 'Create Groups',
@@ -587,24 +591,27 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        SizedBox(
-                          width: 360,
-                          child: DropdownButtonFormField<int>(
-                            initialValue: _selectedTournamentId,
-                            decoration: const InputDecoration(
-                              labelText: 'Tournament',
+                        if (!isTournamentSelectionLocked)
+                          SizedBox(
+                            width: 360,
+                            child: DropdownButtonFormField<int>(
+                              initialValue: _selectedTournamentId,
+                              decoration: const InputDecoration(
+                                labelText: 'Tournament',
+                              ),
+                              items: _tournaments
+                                  .map(
+                                    (entry) => DropdownMenuItem<int>(
+                                      value: entry.id,
+                                      child: Text(
+                                        srrTournamentDropdownLabel(entry),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              onChanged: _busy ? null : _onTournamentChanged,
                             ),
-                            items: _tournaments
-                                .map(
-                                  (entry) => DropdownMenuItem<int>(
-                                    value: entry.id,
-                                    child: Text(entry.name),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: _busy ? null : _onTournamentChanged,
                           ),
-                        ),
                         SizedBox(
                           width: 460,
                           child: ToggleButtons(
@@ -678,7 +685,7 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
                     Text(
                       selectedTournament == null
                           ? 'No tournament selected.'
-                          : 'Tournament: ${selectedTournament.name}',
+                          : 'Tournament: ${srrTournamentDropdownLabel(selectedTournament)}',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleSmall,
                     ),

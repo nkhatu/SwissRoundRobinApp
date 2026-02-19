@@ -21,6 +21,7 @@ import {onRequest} from 'firebase-functions/v2/https';
 
 import {
   NationalRankingModel,
+  PlayerModel,
   PersonNameModel,
   TournamentGroupModel,
   TournamentGroupingMethod,
@@ -166,11 +167,13 @@ interface MatchDto {
     id: number;
     handle: string;
     display_name: string;
+    country: string | null;
   };
   player2: {
     id: number;
     handle: string;
     display_name: string;
+    country: string | null;
   };
   status: MatchStatus;
   confirmed_score1: number | null;
@@ -2368,6 +2371,36 @@ function parseRoundOnePairingMethod(
   );
 }
 
+function shuffledTableNumbers(tableCount: number): number[] {
+  const count = Math.max(1, Math.trunc(tableCount));
+  const values = Array.from({length: count}, (_, index) => index + 1);
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const target = crypto.randomInt(index + 1);
+    const temp = values[index];
+    values[index] = values[target];
+    values[target] = temp;
+  }
+  return values;
+}
+
+function buildRandomTableAssignments(params: {
+  matchCount: number;
+  tableCount: number;
+}): number[] {
+  const matchCount = Math.max(0, Math.trunc(params.matchCount));
+  if (matchCount === 0) return [];
+  const tableCount = Math.max(1, Math.trunc(params.tableCount));
+  const assignments: number[] = [];
+  while (assignments.length < matchCount) {
+    const batch = shuffledTableNumbers(tableCount);
+    for (const tableNumber of batch) {
+      assignments.push(tableNumber);
+      if (assignments.length === matchCount) break;
+    }
+  }
+  return assignments;
+}
+
 function assertTournamentSetupEditable(tournament: TournamentModel): void {
   if (tournament.status === 'active' || tournament.status === 'completed') {
     throw new HttpError(
@@ -4041,13 +4074,17 @@ async function fetchMatchDtos(
   userId: number | null,
   tournamentId: number,
 ): Promise<MatchDto[]> {
-  const [users, matches, confirmations] = await Promise.all([
+  const [users, players, matches, confirmations] = await Promise.all([
     fetchAllUsers(),
+    playersRepository.list(),
     fetchAllMatches(tournamentId),
     fetchAllConfirmations(),
   ]);
 
   const usersById = new Map<number, UserRecord>(users.map((user) => [user.id, user]));
+  const playersByUserId = new Map<number, PlayerModel>(
+    players.map((player) => [player.userId, player]),
+  );
   const confirmationsByMatch = new Map<number, ScoreConfirmationRecord[]>();
   const myConfirmationByMatch = new Map<number, ScoreConfirmationRecord>();
 
@@ -4067,6 +4104,8 @@ async function fetchMatchDtos(
     if (!player1 || !player2) {
       throw new HttpError(500, `Missing player data for match ${match.id}.`);
     }
+    const player1Profile = playersByUserId.get(player1.id);
+    const player2Profile = playersByUserId.get(player2.id);
 
     const matchConfirmations = confirmationsByMatch.get(match.id) ?? [];
     const distinctConfirmations = new Set(
@@ -4093,11 +4132,13 @@ async function fetchMatchDtos(
         id: player1.id,
         handle: player1.handle,
         display_name: player1.display_name,
+        country: player1Profile?.country ?? null,
       },
       player2: {
         id: player2.id,
         handle: player2.handle,
         display_name: player2.display_name,
+        country: player2Profile?.country ?? null,
       },
       status,
       confirmed_score1: match.confirmed_score1,
@@ -4294,19 +4335,25 @@ async function confirmScoresIfConsensus(matchId: number): Promise<void> {
 }
 
 async function fetchMatchDto(matchId: number, userId: number | null): Promise<MatchDto | null> {
-  const [match, users, confirmations] = await Promise.all([
+  const [match, users, players, confirmations] = await Promise.all([
     fetchMatchById(matchId),
     fetchAllUsers(),
+    playersRepository.list(),
     fetchConfirmationsForMatch(matchId),
   ]);
   if (!match) return null;
 
   const usersById = new Map<number, UserRecord>(users.map((user) => [user.id, user]));
+  const playersByUserId = new Map<number, PlayerModel>(
+    players.map((player) => [player.userId, player]),
+  );
   const player1 = usersById.get(match.player1_id);
   const player2 = usersById.get(match.player2_id);
   if (!player1 || !player2) {
     throw new HttpError(500, `Missing player data for match ${match.id}.`);
   }
+  const player1Profile = playersByUserId.get(player1.id);
+  const player2Profile = playersByUserId.get(player2.id);
 
   const distinctConfirmations = new Set(
     confirmations.map((row) => confirmationSignature(row)),
@@ -4333,11 +4380,13 @@ async function fetchMatchDto(matchId: number, userId: number | null): Promise<Ma
       id: player1.id,
       handle: player1.handle,
       display_name: player1.display_name,
+      country: player1Profile?.country ?? null,
     },
     player2: {
       id: player2.id,
       handle: player2.handle,
       display_name: player2.display_name,
+      country: player2Profile?.country ?? null,
     },
     status,
     confirmed_score1: match.confirmed_score1,
@@ -5316,13 +5365,21 @@ router.post('/tournaments/:tournament_id/matchups/generate', route(async (req, r
     );
   }
 
+  const tableAssignments = buildRandomTableAssignments({
+    matchCount: pairs.length,
+    tableCount: Math.max(
+      1,
+      Math.trunc(tournament.metadata?.numberOfTables ?? pairs.length),
+    ),
+  });
+
   for (let index = 0; index < pairs.length; index += 1) {
     const [left, right] = pairs[index];
     await createMatch({
       tournamentId,
       groupNumber,
       roundNumber: nextRound,
-      tableNumber: index + 1,
+      tableNumber: tableAssignments[index] ?? index + 1,
       player1Id: left.playerId,
       player2Id: right.playerId,
     });

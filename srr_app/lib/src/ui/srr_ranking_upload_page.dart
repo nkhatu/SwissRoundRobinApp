@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_ranking_upload_page.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Parses, validates, previews, and persists national ranking upload records.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Delegates ranking persistence and retrieval to repository and API abstractions.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -18,9 +18,11 @@ import '../api/srr_api_client.dart';
 import '../models/srr_models.dart';
 import '../repositories/srr_tournament_repository.dart';
 import '../services/ranking_upload_parser.dart';
+import '../services/srr_tournament_labels.dart';
 import '../theme/srr_display_preferences_controller.dart';
 import 'srr_generic_upload_card.dart';
 import 'srr_page_scaffold.dart';
+import 'srr_round_matchup_page.dart';
 import 'srr_routes.dart';
 import 'srr_split_action_button.dart';
 import 'srr_upload_page.dart';
@@ -349,7 +351,7 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
           selectedTournamentId = null;
         }
         if (selectedTournamentId == null &&
-            widget.initialTournamentId != null &&
+            widget.initialTournamentId == null &&
             tournaments.isNotEmpty) {
           selectedTournamentId = tournaments.first.id;
         }
@@ -964,7 +966,7 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
   String _currentTournamentLabel() {
     final tournament = _selectedTournament;
     if (tournament == null) return 'Tournament: Not selected';
-    return 'Tournament: ${tournament.name}';
+    return 'Tournament: ${srrTournamentDropdownLabel(tournament)}';
   }
 
   @override
@@ -973,9 +975,14 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
     final isAdmin = user?.isAdmin ?? false;
     final canManageRanking = isAdmin && !widget.readOnly;
     final canViewRanking = canManageRanking || widget.readOnly;
+    final isTournamentSelectionLocked = widget.initialTournamentId != null;
+    final selectedTournament = _selectedTournament;
     final showTournamentSelectionControls =
         canManageRanking &&
-        (widget.initialTournamentId != null || _selectedTournamentId != null);
+        !isTournamentSelectionLocked &&
+        _selectedTournamentId != null;
+    final showSelectRankingButton =
+        canManageRanking && _selectedTournamentId != null;
     final showTournamentContextSummary =
         canManageRanking &&
         showTournamentSelectionControls &&
@@ -1051,7 +1058,13 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
           IconButton(
             tooltip: 'Round Matchup',
             onPressed: () {
-              Navigator.pushNamed(context, SrrRoutes.roundMatchup);
+              Navigator.pushNamed(
+                context,
+                SrrRoutes.roundMatchup,
+                arguments: SrrRoundMatchupPageArguments(
+                  tournamentId: _selectedTournamentId,
+                ),
+              );
             },
             icon: const Icon(Icons.grid_view),
           ),
@@ -1159,6 +1172,20 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
               inlineActionsWithContext: true,
               showActionButtons: canManageRanking,
               contextFields: [
+                if (canManageRanking && isTournamentSelectionLocked)
+                  SizedBox(
+                    width: 340,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Tournament',
+                      ),
+                      child: Text(
+                        selectedTournament == null
+                            ? 'Not selected'
+                            : srrTournamentDropdownLabel(selectedTournament),
+                      ),
+                    ),
+                  ),
                 if (showTournamentSelectionControls)
                   SizedBox(
                     width: 340,
@@ -1173,7 +1200,7 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
                             (tournament) => DropdownMenuItem<int>(
                               value: tournament.id,
                               child: Text(
-                                '${tournament.name} (${tournament.status})',
+                                srrTournamentDropdownLabel(tournament),
                               ),
                             ),
                           )
@@ -1206,7 +1233,7 @@ class _SrrRankingUploadPageState extends State<SrrRankingUploadPage> {
                         : _onRankingOptionSelected,
                   ),
                 ),
-                if (showTournamentSelectionControls)
+                if (showSelectRankingButton)
                   SizedBox(
                     width: 240,
                     child: SrrSplitActionButton(

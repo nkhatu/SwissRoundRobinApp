@@ -24,6 +24,8 @@ ANDROID_BUILD_MODE="${ANDROID_BUILD_MODE:-debug}"
 ANDROID_INSTALL="${ANDROID_INSTALL:-1}"
 ANDROID_DEVICE_ID="${ANDROID_DEVICE_ID:-}"
 SRR_API_URL="${SRR_API_URL:-https://example.com/api}"
+SRR_SUPPORT_EMAIL="${SRR_SUPPORT_EMAIL:-support@example.com}"
+SRR_PUBLIC_DOMAIN="${SRR_PUBLIC_DOMAIN:-example.com}"
 
 GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}"
 GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
@@ -38,12 +40,20 @@ case "$ANDROID_BUILD_MODE" in
     ;;
 esac
 
+if [[ "$SRR_SUPPORT_EMAIL" == "support@example.com" ]] ||
+   [[ "$SRR_PUBLIC_DOMAIN" == "example.com" ]]; then
+  echo "Set SRR_SUPPORT_EMAIL and SRR_PUBLIC_DOMAIN before running deploy_android.sh."
+  exit 1
+fi
+
 cd "$APP_DIR"
 flutter pub get
 
 build_args=(
   "--$ANDROID_BUILD_MODE"
   "--dart-define=SRR_API_URL=$SRR_API_URL"
+  "--dart-define=SRR_SUPPORT_EMAIL=$SRR_SUPPORT_EMAIL"
+  "--dart-define=SRR_PUBLIC_DOMAIN=$SRR_PUBLIC_DOMAIN"
 )
 
 if [[ -n "$GOOGLE_WEB_CLIENT_ID" ]]; then

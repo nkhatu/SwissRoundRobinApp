@@ -24,6 +24,8 @@ PROJECT_ID="${FIREBASE_PROJECT_ID:-your-firebase-project-id}"
 DEPLOY_ONLY="${FIREBASE_DEPLOY_ONLY:-hosting}"
 WEB_BUILD_MODE="${WEB_BUILD_MODE:-release}"
 SRR_API_URL="${SRR_API_URL:-https://example.com/api}"
+SRR_SUPPORT_EMAIL="${SRR_SUPPORT_EMAIL:-support@example.com}"
+SRR_PUBLIC_DOMAIN="${SRR_PUBLIC_DOMAIN:-example.com}"
 
 # Set these env vars from your Firebase web app config.
 FIREBASE_WEB_API_KEY="${FIREBASE_WEB_API_KEY:-YOUR_FIREBASE_WEB_API_KEY}"
@@ -46,6 +48,12 @@ if [[ "$FIREBASE_WEB_API_KEY" == "YOUR_FIREBASE_WEB_API_KEY" ]] ||
   exit 1
 fi
 
+if [[ "$SRR_SUPPORT_EMAIL" == "support@example.com" ]] ||
+   [[ "$SRR_PUBLIC_DOMAIN" == "example.com" ]]; then
+  echo "Set SRR_SUPPORT_EMAIL and SRR_PUBLIC_DOMAIN before running deploy_web.sh."
+  exit 1
+fi
+
 case "$WEB_BUILD_MODE" in
   debug|profile|release) ;;
   *)
@@ -60,6 +68,8 @@ flutter pub get
 flutter build web \
   "--$WEB_BUILD_MODE" \
   --dart-define="SRR_API_URL=$SRR_API_URL" \
+  --dart-define="SRR_SUPPORT_EMAIL=$SRR_SUPPORT_EMAIL" \
+  --dart-define="SRR_PUBLIC_DOMAIN=$SRR_PUBLIC_DOMAIN" \
   --dart-define="FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY" \
   --dart-define="FIREBASE_WEB_APP_ID=$FIREBASE_WEB_APP_ID" \
   --dart-define="FIREBASE_WEB_MESSAGING_SENDER_ID=$FIREBASE_WEB_MESSAGING_SENDER_ID" \

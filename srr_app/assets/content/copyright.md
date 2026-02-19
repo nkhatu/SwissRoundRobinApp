@@ -14,4 +14,4 @@ You may not copy, redistribute, or commercially repurpose proprietary app conten
 
 ## Contact
 
-Licensing and copyright inquiries: support@example.com
+Licensing and copyright inquiries: {{SUPPORT_EMAIL}}

@@ -220,11 +220,18 @@ class _SrrTournamentAppState extends State<SrrTournamentApp> {
               tournamentRepository: widget.dependencies.tournamentRepository,
               displayPreferencesController: _displayPreferencesController,
             ),
-            SrrRoutes.roundMatchup: (_) => SrrRoundMatchupPage(
-              appState: _appState,
-              apiClient: widget.dependencies.apiClient,
-              tournamentRepository: widget.dependencies.tournamentRepository,
-            ),
+            SrrRoutes.roundMatchup: (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              final initialTournamentId = args is SrrRoundMatchupPageArguments
+                  ? args.tournamentId
+                  : null;
+              return SrrRoundMatchupPage(
+                appState: _appState,
+                apiClient: widget.dependencies.apiClient,
+                tournamentRepository: widget.dependencies.tournamentRepository,
+                initialTournamentId: initialTournamentId,
+              );
+            },
             SrrRoutes.completeProfile: (_) => SrrCompleteProfilePage(
               appState: _appState,
               apiClient: widget.dependencies.apiClient,

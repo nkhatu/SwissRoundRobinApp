@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_player_upload_page.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Parses, validates, previews, and persists tournament player upload records.
 // Architecture:
@@ -9,7 +9,7 @@
 // - Delegates file parsing and database operations to parser and repository layers.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -19,9 +19,11 @@ import '../models/srr_models.dart';
 import '../repositories/srr_player_repository.dart';
 import '../repositories/srr_tournament_repository.dart';
 import '../services/player_upload_parser.dart';
+import '../services/srr_tournament_labels.dart';
 import '../theme/srr_display_preferences_controller.dart';
 import 'srr_generic_upload_card.dart';
 import 'srr_page_scaffold.dart';
+import 'srr_round_matchup_page.dart';
 import 'srr_routes.dart';
 import 'srr_split_action_button.dart';
 import 'srr_upload_page.dart';
@@ -167,29 +169,6 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
     return metadata.subType == 'singles'
         ? metadata.singlesMaxParticipants
         : metadata.doublesMaxTeams;
-  }
-
-  String _toInitCap(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '';
-    final normalized = trimmed.replaceAll(RegExp(r'[_-]+'), ' ').toLowerCase();
-    return normalized
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
-        .join(' ');
-  }
-
-  String _tournamentSelectionLabel(SrrTournamentRecord tournament) {
-    final name = tournament.name.trim();
-    final baseName = name.isEmpty ? 'Unnamed Tournament' : name;
-    if (widget.initialTournamentId == null) {
-      final subType = _toInitCap(tournament.metadata?.subType ?? '');
-      if (subType.isNotEmpty) {
-        return '$baseName - $subType (${tournament.status})';
-      }
-    }
-    return '$baseName (${tournament.status})';
   }
 
   @override
@@ -690,6 +669,8 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
   Widget build(BuildContext context) {
     final user = widget.apiClient.currentUserSnapshot;
     final isAdmin = user?.isAdmin ?? false;
+    final isTournamentSelectionLocked = widget.initialTournamentId != null;
+    final selectedTournament = _selectedTournament;
     final validPlayersCount = _validUploadedPlayers.length;
     final invalidPlayersCount = _invalidUploadedPlayersCount;
     final participantLimit = _selectedTournamentParticipantLimit;
@@ -754,7 +735,13 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
           IconButton(
             tooltip: 'Round Matchup',
             onPressed: () {
-              Navigator.pushNamed(context, SrrRoutes.roundMatchup);
+              Navigator.pushNamed(
+                context,
+                SrrRoutes.roundMatchup,
+                arguments: SrrRoundMatchupPageArguments(
+                  tournamentId: _selectedTournamentId,
+                ),
+              );
             },
             icon: const Icon(Icons.grid_view),
           ),
@@ -841,25 +828,44 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
               templateHeadersAsUploadTooltip: true,
               inlineActionsWithContext: true,
               contextFields: [
-                SizedBox(
-                  width: 420,
-                  child: DropdownButtonFormField<int>(
-                    key: ValueKey<int?>(_selectedTournamentId),
-                    initialValue: _selectedTournamentId,
-                    decoration: const InputDecoration(labelText: 'Tournament'),
-                    items: _tournaments
-                        .map(
-                          (tournament) => DropdownMenuItem<int>(
-                            value: tournament.id,
-                            child: Text(_tournamentSelectionLabel(tournament)),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: _submitting || _uploading || _deleting
-                        ? null
-                        : _onTournamentSelected,
+                if (isTournamentSelectionLocked)
+                  SizedBox(
+                    width: 420,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Tournament',
+                      ),
+                      child: Text(
+                        selectedTournament == null
+                            ? 'Not selected'
+                            : srrTournamentDropdownLabel(selectedTournament),
+                      ),
+                    ),
                   ),
-                ),
+                if (!isTournamentSelectionLocked)
+                  SizedBox(
+                    width: 420,
+                    child: DropdownButtonFormField<int>(
+                      key: ValueKey<int?>(_selectedTournamentId),
+                      initialValue: _selectedTournamentId,
+                      decoration: const InputDecoration(
+                        labelText: 'Tournament',
+                      ),
+                      items: _tournaments
+                          .map(
+                            (tournament) => DropdownMenuItem<int>(
+                              value: tournament.id,
+                              child: Text(
+                                srrTournamentDropdownLabel(tournament),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: _submitting || _uploading || _deleting
+                          ? null
+                          : _onTournamentSelected,
+                    ),
+                  ),
                 SizedBox(
                   width: 240,
                   child: SrrSplitActionButton(

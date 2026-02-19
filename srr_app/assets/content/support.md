@@ -2,7 +2,7 @@
 
 Need help with Carrom SRR?
 
-- Email: support@example.com
+- Email: {{SUPPORT_EMAIL}}
 - Response window: 1-2 business days
 - Include tournament name, device type, and screenshots when reporting issues
 
