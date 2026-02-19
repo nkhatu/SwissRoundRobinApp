@@ -1,0 +1,101 @@
+Rank,Player Name,State,Country,Email_Id,Ranking Points,Ranking Year,Last Updated
+1,Aarav Sharma,Rajasthan,India,player001@srr.example.com,2500,2026,2026-02-18
+2,Vivaan Sharma,Maharashtra,India,player002@srr.example.com,2485,2026,2026-02-18
+3,Aditya Sharma,Karnataka,India,player003@srr.example.com,2470,2026,2026-02-18
+4,Arjun Sharma,Tamil Nadu,India,player004@srr.example.com,2455,2026,2026-02-18
+5,Reyansh Sharma,Gujarat,India,player005@srr.example.com,2440,2026,2026-02-18
+6,Ishaan Sharma,Delhi,India,player006@srr.example.com,2425,2026,2026-02-18
+7,Krishna Sharma,Uttar Pradesh,India,player007@srr.example.com,2410,2026,2026-02-18
+8,Sai Sharma,West Bengal,India,player008@srr.example.com,2395,2026,2026-02-18
+9,Rohan Sharma,Punjab,India,player009@srr.example.com,2380,2026,2026-02-18
+10,Vihaan Sharma,Haryana,India,player010@srr.example.com,2365,2026,2026-02-18
+11,Neil Sharma,Kerala,India,player011@srr.example.com,2350,2026,2026-02-18
+12,Karan Sharma,Andhra Pradesh,India,player012@srr.example.com,2335,2026,2026-02-18
+13,Rahul Sharma,Telangana,India,player013@srr.example.com,2320,2026,2026-02-18
+14,Amit Sharma,Madhya Pradesh,India,player014@srr.example.com,2305,2026,2026-02-18
+15,Siddharth Sharma,Bihar,India,player015@srr.example.com,2290,2026,2026-02-18
+16,Kabir Sharma,Odisha,India,player016@srr.example.com,2275,2026,2026-02-18
+17,Dhruv Sharma,Rajasthan,India,player017@srr.example.com,2260,2026,2026-02-18
+18,Nikhil Sharma,Maharashtra,India,player018@srr.example.com,2245,2026,2026-02-18
+19,Varun Sharma,Karnataka,India,player019@srr.example.com,2230,2026,2026-02-18
+20,Manav Sharma,Tamil Nadu,India,player020@srr.example.com,2215,2026,2026-02-18
+21,Aarav Singh,Gujarat,India,player021@srr.example.com,2200,2026,2026-02-18
+22,Vivaan Singh,Delhi,India,player022@srr.example.com,2185,2026,2026-02-18
+23,Aditya Singh,Uttar Pradesh,India,player023@srr.example.com,2170,2026,2026-02-18
+24,Arjun Singh,West Bengal,India,player024@srr.example.com,2155,2026,2026-02-18
+25,Reyansh Singh,Punjab,India,player025@srr.example.com,2140,2026,2026-02-18
+26,Ishaan Singh,Haryana,India,player026@srr.example.com,2125,2026,2026-02-18
+27,Krishna Singh,Kerala,India,player027@srr.example.com,2110,2026,2026-02-18
+28,Sai Singh,Andhra Pradesh,India,player028@srr.example.com,2095,2026,2026-02-18
+29,Rohan Singh,Telangana,India,player029@srr.example.com,2080,2026,2026-02-18
+30,Vihaan Singh,Madhya Pradesh,India,player030@srr.example.com,2065,2026,2026-02-18
+31,Neil Singh,Bihar,India,player031@srr.example.com,2050,2026,2026-02-18
+32,Karan Singh,Odisha,India,player032@srr.example.com,2035,2026,2026-02-18
+33,Rahul Singh,Rajasthan,India,player033@srr.example.com,2020,2026,2026-02-18
+34,Amit Singh,Maharashtra,India,player034@srr.example.com,2005,2026,2026-02-18
+35,Siddharth Singh,Karnataka,India,player035@srr.example.com,1990,2026,2026-02-18
+36,Kabir Singh,Tamil Nadu,India,player036@srr.example.com,1975,2026,2026-02-18
+37,Dhruv Singh,Gujarat,India,player037@srr.example.com,1960,2026,2026-02-18
+38,Nikhil Singh,Delhi,India,player038@srr.example.com,1945,2026,2026-02-18
+39,Varun Singh,Uttar Pradesh,India,player039@srr.example.com,1930,2026,2026-02-18
+40,Manav Singh,West Bengal,India,player040@srr.example.com,1915,2026,2026-02-18
+41,Aarav Patel,Punjab,India,player041@srr.example.com,1900,2026,2026-02-18
+42,Vivaan Patel,Haryana,India,player042@srr.example.com,1885,2026,2026-02-18
+43,Aditya Patel,Kerala,India,player043@srr.example.com,1870,2026,2026-02-18
+44,Arjun Patel,Andhra Pradesh,India,player044@srr.example.com,1855,2026,2026-02-18
+45,Reyansh Patel,Telangana,India,player045@srr.example.com,1840,2026,2026-02-18
+46,Ishaan Patel,Madhya Pradesh,India,player046@srr.example.com,1825,2026,2026-02-18
+47,Krishna Patel,Bihar,India,player047@srr.example.com,1810,2026,2026-02-18
+48,Sai Patel,Odisha,India,player048@srr.example.com,1795,2026,2026-02-18
+49,Rohan Patel,Rajasthan,India,player049@srr.example.com,1780,2026,2026-02-18
+50,Vihaan Patel,Maharashtra,India,player050@srr.example.com,1765,2026,2026-02-18
+51,Neil Patel,Karnataka,India,player051@srr.example.com,1750,2026,2026-02-18
+52,Karan Patel,Tamil Nadu,India,player052@srr.example.com,1735,2026,2026-02-18
+53,Rahul Patel,Gujarat,India,player053@srr.example.com,1720,2026,2026-02-18
+54,Amit Patel,Delhi,India,player054@srr.example.com,1705,2026,2026-02-18
+55,Siddharth Patel,Uttar Pradesh,India,player055@srr.example.com,1690,2026,2026-02-18
+56,Kabir Patel,West Bengal,India,,1675,2026,2026-02-18
+57,Dhruv Patel,Punjab,India,player057@srr.example.com,1660,2026,2026-02-18
+58,Nikhil Patel,Haryana,India,player058@srr.example.com,1645,2026,2026-02-18
+59,Varun Patel,Kerala,India,player059@srr.example.com,1630,2026,2026-02-18
+60,Manav Patel,Andhra Pradesh,India,,1615,2026,2026-02-18
+61,Aarav Kumar,Telangana,India,player061@srr.example.com,1600,2026,2026-02-18
+62,Vivaan Kumar,Madhya Pradesh,India,player062@srr.example.com,1585,2026,2026-02-18
+63,Aditya Kumar,Bihar,India,player063@srr.example.com,1570,2026,2026-02-18
+64,Arjun Kumar,Odisha,India,,1555,2026,2026-02-18
+65,Reyansh Kumar,Rajasthan,India,player065@srr.example.com,1540,2026,2026-02-18
+66,Ishaan Kumar,Maharashtra,India,player066@srr.example.com,1525,2026,2026-02-18
+67,Krishna Kumar,Karnataka,India,player067@srr.example.com,1510,2026,2026-02-18
+68,Sai Kumar,Tamil Nadu,India,,1495,2026,2026-02-18
+69,Rohan Kumar,Gujarat,India,player069@srr.example.com,1480,2026,2026-02-18
+70,Vihaan Kumar,Delhi,India,player070@srr.example.com,1465,2026,2026-02-18
+71,Neil Kumar,Uttar Pradesh,India,player071@srr.example.com,1450,2026,2026-02-18
+72,Karan Kumar,West Bengal,India,,1435,2026,2026-02-18
+73,Rahul Kumar,Punjab,India,player073@srr.example.com,1420,2026,2026-02-18
+74,Amit Kumar,Haryana,India,player074@srr.example.com,1405,2026,2026-02-18
+75,Siddharth Kumar,Kerala,India,player075@srr.example.com,1390,2026,2026-02-18
+76,Kabir Kumar,Andhra Pradesh,India,player076@srr.example.com,1375,2026,2026-02-18
+77,Dhruv Kumar,Telangana,India,player077@srr.example.com,1360,2026,2026-02-18
+78,Nikhil Kumar,Madhya Pradesh,India,player078@srr.example.com,1345,2026,2026-02-18
+79,Varun Kumar,Bihar,India,player079@srr.example.com,1330,2026,2026-02-18
+80,Manav Kumar,Odisha,India,player080@srr.example.com,1315,2026,2026-02-18
+81,Aarav Gupta,Rajasthan,India,player081@srr.example.com,1300,2026,2026-02-18
+82,Vivaan Gupta,Maharashtra,India,player082@srr.example.com,1285,2026,2026-02-18
+83,Aditya Gupta,Karnataka,India,player083@srr.example.com,1270,2026,2026-02-18
+84,Arjun Gupta,Tamil Nadu,India,player084@srr.example.com,1255,2026,2026-02-18
+85,Reyansh Gupta,Gujarat,India,player085@srr.example.com,1240,2026,2026-02-18
+86,Ishaan Gupta,Delhi,India,player086@srr.example.com,1225,2026,2026-02-18
+87,Krishna Gupta,Uttar Pradesh,India,player087@srr.example.com,1210,2026,2026-02-18
+88,Sai Gupta,West Bengal,India,player088@srr.example.com,1195,2026,2026-02-18
+89,Rohan Gupta,Punjab,India,player089@srr.example.com,1180,2026,2026-02-18
+90,Vihaan Gupta,Haryana,India,player090@srr.example.com,1165,2026,2026-02-18
+91,Neil Gupta,Kerala,India,player091@srr.example.com,1150,2026,2026-02-18
+92,Karan Gupta,Andhra Pradesh,India,player092@srr.example.com,1135,2026,2026-02-18
+93,Rahul Gupta,Telangana,India,player093@srr.example.com,1120,2026,2026-02-18
+94,Amit Gupta,Madhya Pradesh,India,player094@srr.example.com,1105,2026,2026-02-18
+95,Siddharth Gupta,Bihar,India,player095@srr.example.com,1090,2026,2026-02-18
+96,Kabir Gupta,Odisha,India,player096@srr.example.com,1075,2026,2026-02-18
+97,Dhruv Gupta,Rajasthan,India,player097@srr.example.com,1060,2026,2026-02-18
+98,Nikhil Gupta,Maharashtra,India,player098@srr.example.com,1045,2026,2026-02-18
+99,Varun Gupta,Karnataka,India,player099@srr.example.com,1030,2026,2026-02-18
+100,Manav Gupta,Tamil Nadu,India,player100@srr.example.com,1015,2026,2026-02-18

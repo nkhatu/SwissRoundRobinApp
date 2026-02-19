@@ -1,0 +1,35 @@
+.DS_Store
+.codex/
+.idea/
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Local OAuth/client secrets
+client_secret_*.json
+
+# Local SQLite data
+api/data/*.sqlite3
+
+# Firebase/Functions local artifacts
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/.env.local
+
+# Flutter local/build artifacts
+srr_app/.dart_tool/
+srr_app/build/
+srr_app/.packages
+srr_app/.flutter-plugins
+srr_app/.flutter-plugins-dependencies
+srr_app/.metadata
+srr_app/android/.gradle/
+srr_app/android/local.properties
+srr_app/ios/Flutter/ephemeral/
+srr_app/ios/Pods/
+srr_app/ios/.symlinks/
+
+# Keep Firebase app config files local
+srr_app/android/app/google-services.json
+srr_app/ios/Runner/GoogleService-Info.plist
