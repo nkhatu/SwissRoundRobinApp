@@ -44,9 +44,11 @@ packages:
   catu_framework:
     dependency: "direct main"
     description:
-      path: "/Users/enkay/AndroidStudioProjects/catu_framework"
-      relative: false
-    source: path
+      path: "."
+      ref: main
+      resolved-ref: f53081b3ac30b6c4a8b4a0bc4b0ec48c9016a399
+      url: "https://github.com/nkhatu/catu_framework.git"
+    source: git
     version: "0.0.1"
   characters:
     dependency: transitive
