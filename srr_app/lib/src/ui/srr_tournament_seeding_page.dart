@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/ui/srr_tournament_seeding_page.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Builds and edits tournament seeding order, including drag-reorder workflows.
 // Architecture:
@@ -9,13 +9,14 @@
 // - Delegates seeding data retrieval and persistence to tournament repository APIs.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
+//
 import 'package:catu_framework/catu_framework.dart';
 import 'package:flutter/material.dart';
 
 import '../api/srr_api_client.dart';
 import '../models/srr_models.dart';
 import '../repositories/srr_tournament_repository.dart';
+import '../services/srr_country_iso.dart';
 import '../theme/srr_display_preferences_controller.dart';
 import 'srr_page_scaffold.dart';
 import 'srr_routes.dart';
@@ -54,25 +55,6 @@ class _SrrTournamentSeedingPageState extends State<SrrTournamentSeedingPage> {
   static const double _countryColumnWidth = 240;
   static const double _rankColumnWidth = 190;
   static const double _seedingColumnWidth = 220;
-
-  static const Map<String, String> _countryIsoAliases = {
-    'us': 'US',
-    'usa': 'US',
-    'unitedstates': 'US',
-    'unitedstatesofamerica': 'US',
-    'america': 'US',
-    'india': 'IN',
-    'bharat': 'IN',
-    'canada': 'CA',
-    'uk': 'GB',
-    'unitedkingdom': 'GB',
-    'greatbritain': 'GB',
-    'england': 'GB',
-    'australia': 'AU',
-    'singapore': 'SG',
-    'uae': 'AE',
-    'unitedarabemirates': 'AE',
-  };
 
   bool _loading = true;
   bool _busy = false;
@@ -343,28 +325,6 @@ class _SrrTournamentSeedingPageState extends State<SrrTournamentSeedingPage> {
     });
   }
 
-  String _normalizeCountryLookup(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-  }
-
-  String _countryIsoCode(String country) {
-    final normalized = _normalizeCountryLookup(country);
-    if (normalized.length == 2) {
-      return normalized.toUpperCase();
-    }
-    return _countryIsoAliases[normalized] ?? '';
-  }
-
-  String _countryFlagEmoji(String country) {
-    final isoCode = _countryIsoCode(country);
-    if (isoCode.length != 2) return '';
-    final upper = isoCode.toUpperCase();
-    final first = upper.codeUnitAt(0);
-    final second = upper.codeUnitAt(1);
-    if (first < 65 || first > 90 || second < 65 || second > 90) return '';
-    return String.fromCharCodes([first + 127397, second + 127397]);
-  }
-
   String _nationalRankLabel(SrrTournamentSeedingRow row) {
     if (row.isNational && row.rankingRank != null && row.rankingRank! > 0) {
       return '${row.rankingRank}';
@@ -486,7 +446,7 @@ class _SrrTournamentSeedingPageState extends State<SrrTournamentSeedingPage> {
                 itemCount: _rows.length,
                 itemBuilder: (context, index) {
                   final row = _rows[index];
-                  final flag = _countryFlagEmoji(row.country);
+                  final flag = srrCountryFlagEmoji(row.country);
                   final countryLabel = row.country.trim().isEmpty
                       ? 'Unknown'
                       : row.country.trim();
