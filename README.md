@@ -9,12 +9,12 @@ This rewrite uses:
 
 ## Documentation
 
-- `docs/srr_architecture.md` — production-ready architecture narrative, data model, workflows, and diagrams aligned with the current Flutter + Functions layout.
-- `docs/srr_architecture_slides.md` — slide-style summary you can reuse for presentations or handoffs.
+- [`docs/srr_architecture.md`](docs/srr_architecture.md) — production-ready architecture narrative, data model, workflows, and diagrams aligned with the current Flutter + Functions layout.
+- [`docs/srr_architecture_slides.md`](docs/srr_architecture_slides.md) — slide-style summary you can reuse for presentations or handoffs.
 
 ## UI helpers
 
-- `srr_app/lib/src/ui/helpers/srr_form_helpers.dart` provides shared form widgets (inline error banners, string extensions) so tournament/setup screens stay focused on layout and the Catu-inspired theme scale is consistent.
+- [`srr_app/lib/src/ui/helpers/srr_form_helpers.dart`](srr_app/lib/src/ui/helpers/srr_form_helpers.dart) provides shared form widgets (inline error banners, string extensions) so tournament/setup screens stay focused on layout and the Catu-inspired theme scale is consistent.
 
 ## Why Firestore + Functions
 
