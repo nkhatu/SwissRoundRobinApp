@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // srr_app/lib/src/repositories/srr_player_repository.dart
 // ---------------------------------------------------------------------------
-// 
+//
 // Purpose:
 // - Provides player-facing repository operations backed by API client calls.
 // Architecture:
@@ -9,24 +9,24 @@
 // - Returns typed domain models for upload and tournament pages.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
-// 
-import '../api/srr_api_client.dart';
+//
+import '../api/srr_player_api.dart';
 import '../models/srr_models.dart';
 
 class SrrPlayerRepository {
-  const SrrPlayerRepository(this._apiClient);
+  const SrrPlayerRepository(this._playerApi);
 
-  final SrrApiClient _apiClient;
+  final SrrPlayerApi _playerApi;
 
   Future<List<SrrPlayerLite>> fetchTournamentPlayers(int tournamentId) {
-    return _apiClient.fetchTournamentPlayers(tournamentId);
+    return _playerApi.fetchTournamentPlayers(tournamentId);
   }
 
   Future<SrrTournamentPlayersUploadResult> uploadTournamentPlayers({
     required int tournamentId,
     required List<SrrTournamentSetupPlayerInput> players,
   }) {
-    return _apiClient.uploadTournamentPlayers(
+    return _playerApi.uploadTournamentPlayers(
       tournamentId: tournamentId,
       players: players,
     );
@@ -35,6 +35,6 @@ class SrrPlayerRepository {
   Future<SrrTournamentPlayersDeleteResult> deleteTournamentPlayers(
     int tournamentId,
   ) {
-    return _apiClient.deleteTournamentPlayers(tournamentId);
+    return _playerApi.deleteTournamentPlayers(tournamentId);
   }
 }

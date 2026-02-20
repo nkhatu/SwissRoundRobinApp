@@ -12,7 +12,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../di/srr_dependencies.dart';
-import 'srr_tournament_app.dart';
+import 'tournament/srr_tournament_app.dart';
 
 class AppBootstrap extends StatelessWidget {
   const AppBootstrap({super.key, required this.dependencies});

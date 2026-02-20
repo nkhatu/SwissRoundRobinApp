@@ -15,17 +15,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
-import '../api/srr_api_client.dart';
+import '../models/srr_models.dart';
+import '../repositories/srr_auth_repository.dart';
 import 'apple_auth_helper.dart';
 import 'auth_exceptions.dart';
 import 'auth_util.dart';
 import 'email_auth_helper.dart';
 import 'google_auth_helper.dart';
-import '../models/srr_models.dart';
 
 class SrrAuthService implements AuthService {
   SrrAuthService(
-    this._apiClient, {
+    this._authRepository, {
     EmailAuthHelper? emailAuthHelper,
     GoogleAuthHelper? googleAuthHelper,
     AppleAuthHelper? appleAuthHelper,
@@ -66,16 +66,16 @@ class SrrAuthService implements AuthService {
     defaultValue: 'https://example.com/api/callbacks/sign_in_with_apple',
   );
 
-  final SrrApiClient _apiClient;
   final EmailAuthHelper _emailHelper;
   final GoogleAuthHelper _googleHelper;
   final AppleAuthHelper _appleHelper;
+  final SrrAuthRepository _authRepository;
 
-  SrrUser? get currentAccount => _apiClient.currentUserSnapshot;
+  SrrUser? get currentAccount => _authRepository.currentUserSnapshot;
 
   @override
   Future<AuthUser?> currentUser() async {
-    final user = await _apiClient.currentUser();
+    final user = await _authRepository.currentUser();
     if (user == null) return null;
     return _toAuthUser(user);
   }
@@ -87,7 +87,7 @@ class SrrAuthService implements AuthService {
   }) async {
     await _emailHelper.signIn(email: email, password: password);
     final normalized = normalizedEmail(email);
-    final user = await _apiClient.bootstrapFirebaseAuthUser(
+    final user = await _authRepository.bootstrapFirebaseAuthUser(
       handleHint: handleHintFromEmail(normalized),
     );
     return _toAuthUser(user);
@@ -105,7 +105,7 @@ class SrrAuthService implements AuthService {
       displayName: displayName,
     );
     final normalized = normalizedEmail(email);
-    final user = await _apiClient.bootstrapFirebaseAuthUser(
+    final user = await _authRepository.bootstrapFirebaseAuthUser(
       displayName: displayName,
       handleHint: handleHintFromEmail(normalized),
       role: 'player',
@@ -113,9 +113,22 @@ class SrrAuthService implements AuthService {
     return _toAuthUser(user);
   }
 
+  Future<AuthUser> upsertProfile({
+    required String firstName,
+    required String lastName,
+    required String role,
+  }) async {
+    final user = await _authRepository.upsertProfile(
+      firstName: firstName,
+      lastName: lastName,
+      role: role,
+    );
+    return _toAuthUser(user);
+  }
+
   @override
   Future<void> signOut() async {
-    await _apiClient.logout();
+    await _authRepository.logout();
     await _emailHelper.signOut();
     try {
       await _googleHelper.signOut();
@@ -128,7 +141,7 @@ class SrrAuthService implements AuthService {
   Future<AuthUser> signInWithGoogle() async {
     try {
       final credential = await _googleHelper.signIn();
-      final user = await _apiClient.bootstrapFirebaseAuthUser(
+      final user = await _authRepository.bootstrapFirebaseAuthUser(
         displayName: credential.user?.displayName,
         handleHint: handleHintFromEmail(credential.user?.email),
         role: 'player',
@@ -155,7 +168,7 @@ class SrrAuthService implements AuthService {
   Future<AuthUser> signInWithApple() async {
     try {
       final credential = await _appleHelper.signIn();
-      final user = await _apiClient.bootstrapFirebaseAuthUser(
+      final user = await _authRepository.bootstrapFirebaseAuthUser(
         displayName: credential.user?.displayName,
         handleHint: handleHintFromEmail(credential.user?.email),
         role: 'player',

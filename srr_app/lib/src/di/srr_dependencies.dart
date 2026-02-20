@@ -5,15 +5,20 @@
 // Purpose:
 // - Builds and exposes the SRR dependency graph for app bootstrap.
 // Architecture:
-// - Dependency-injection composition layer wiring API clients and repositories.
-// - Provides a single construction boundary for app-wide service objects.
+// - Dependency-injection composition layer wiring feature repositories and services.
+// - Provides a single construction boundary for app-wide controllers.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
 //
 import 'package:catu_framework/catu_framework.dart';
 
-import '../api/srr_api_client.dart';
+import '../api/auth_api_client.dart';
+import '../api/srr_api_transport.dart';
+import '../api/srr_dashboard_api.dart';
+import '../api/srr_player_api.dart';
+import '../api/srr_tournament_api.dart';
 import '../auth/srr_auth_service.dart';
+import '../repositories/srr_auth_repository.dart';
 import '../repositories/srr_dashboard_repository.dart';
 import '../repositories/srr_player_repository.dart';
 import '../repositories/srr_tournament_repository.dart';
@@ -21,11 +26,10 @@ import '../theme/srr_display_preferences_controller.dart';
 import '../theme/srr_theme_controller.dart';
 import '../theme/srr_theme_factory.dart';
 import '../theme/srr_user_preferences_coordinator.dart';
-import '../ui/srr_route_registry.dart';
+import '../ui/routes/srr_route_registry.dart';
 
 class SrrDependencies {
   const SrrDependencies({
-    required this.apiClient,
     required this.authService,
     required this.framework,
     required this.appState,
@@ -39,7 +43,6 @@ class SrrDependencies {
     required this.userPreferencesCoordinator,
   });
 
-  final SrrApiClient apiClient;
   final SrrAuthService authService;
   final AppFrameworkDependencies framework;
   final AppState appState;
@@ -53,10 +56,11 @@ class SrrDependencies {
   final SrrUserPreferencesCoordinator userPreferencesCoordinator;
 
   static Future<SrrDependencies> bootstrap({required String apiBaseUrl}) async {
-    final apiClient = SrrApiClient(baseUrl: apiBaseUrl);
-    await apiClient.bootstrapSession();
+    final transport = SrrApiTransport(baseUrl: apiBaseUrl);
+    final authRepository = SrrAuthRepository(AuthApiClient(transport));
+    await authRepository.bootstrapSession();
 
-    final authService = SrrAuthService(apiClient);
+    final authService = SrrAuthService(authRepository);
     final framework = AppFrameworkDependencies(
       authService: authService,
       analytics: InMemoryCrashAnalyticsService(),
@@ -71,13 +75,14 @@ class SrrDependencies {
     );
 
     return SrrDependencies(
-      apiClient: apiClient,
       authService: authService,
       framework: framework,
       appState: appState,
-      dashboardRepository: SrrDashboardRepository(apiClient),
-      playerRepository: SrrPlayerRepository(apiClient),
-      tournamentRepository: SrrTournamentRepository(apiClient),
+      dashboardRepository: SrrDashboardRepository(SrrDashboardApi(transport)),
+      playerRepository: SrrPlayerRepository(SrrPlayerApi(transport)),
+      tournamentRepository: SrrTournamentRepository(
+        SrrTournamentApi(transport),
+      ),
       themeController: themeController,
       displayPreferencesController: displayPreferencesController,
       themeFactory: const SrrThemeFactory(),

@@ -10,20 +10,24 @@
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
 //
-import '../api/srr_api_client.dart';
+import '../api/srr_tournament_api.dart';
 import '../models/srr_models.dart';
 
 class SrrTournamentRepository {
-  const SrrTournamentRepository(this._apiClient);
+  const SrrTournamentRepository(this._tournamentApi);
 
-  final SrrApiClient _apiClient;
+  final SrrTournamentApi _tournamentApi;
 
   Future<List<SrrTournamentRecord>> fetchTournaments() {
-    return _apiClient.fetchTournaments();
+    return _tournamentApi.fetchTournaments();
+  }
+
+  Future<SrrActiveTournamentStatus> fetchActiveTournamentStatus() {
+    return _tournamentApi.fetchActiveTournamentStatus();
   }
 
   Future<SrrTournamentRecord> fetchTournament(int tournamentId) {
-    return _apiClient.fetchTournament(tournamentId);
+    return _tournamentApi.fetchTournament(tournamentId);
   }
 
   Future<SrrTournamentRecord> createTournament({
@@ -31,7 +35,7 @@ class SrrTournamentRepository {
     SrrTournamentMetadata? metadata,
     String status = 'setup',
   }) {
-    return _apiClient.createTournament(
+    return _tournamentApi.createTournament(
       tournamentName: tournamentName,
       metadata: metadata,
       status: status,
@@ -42,7 +46,7 @@ class SrrTournamentRepository {
     required int tournamentId,
     required String tournamentName,
   }) {
-    return _apiClient.replicateTournament(
+    return _tournamentApi.replicateTournament(
       tournamentId: tournamentId,
       tournamentName: tournamentName,
     );
@@ -54,7 +58,7 @@ class SrrTournamentRepository {
     required String status,
     required SrrTournamentMetadata metadata,
   }) {
-    return _apiClient.updateTournament(
+    return _tournamentApi.updateTournament(
       tournamentId: tournamentId,
       tournamentName: tournamentName,
       status: status,
@@ -67,7 +71,7 @@ class SrrTournamentRepository {
     required String stepKey,
     required String status,
   }) {
-    return _apiClient.updateTournamentWorkflowStep(
+    return _tournamentApi.updateTournamentWorkflowStep(
       tournamentId: tournamentId,
       stepKey: stepKey,
       status: status,
@@ -75,14 +79,14 @@ class SrrTournamentRepository {
   }
 
   Future<List<SrrNationalRankingOption>> fetchNationalRankingOptions() {
-    return _apiClient.fetchNationalRankingOptions();
+    return _tournamentApi.fetchNationalRankingOptions();
   }
 
   Future<List<SrrNationalRankingRecord>> fetchNationalRankingRows({
     required int rankingYear,
     required String rankingDescription,
   }) {
-    return _apiClient.fetchNationalRankingRows(
+    return _tournamentApi.fetchNationalRankingRows(
       rankingYear: rankingYear,
       rankingDescription: rankingDescription,
     );
@@ -92,7 +96,7 @@ class SrrTournamentRepository {
     required List<SrrNationalRankingInput> rows,
     required String rankingDescription,
   }) {
-    return _apiClient.uploadNationalRankings(
+    return _tournamentApi.uploadNationalRankings(
       rows: rows,
       rankingDescription: rankingDescription,
     );
@@ -102,7 +106,7 @@ class SrrTournamentRepository {
     required int rankingYear,
     required String rankingDescription,
   }) {
-    return _apiClient.deleteNationalRankingList(
+    return _tournamentApi.deleteNationalRankingList(
       rankingYear: rankingYear,
       rankingDescription: rankingDescription,
     );
@@ -113,7 +117,7 @@ class SrrTournamentRepository {
     required int rankingYear,
     required String rankingDescription,
   }) {
-    return _apiClient.selectTournamentRanking(
+    return _tournamentApi.selectTournamentRanking(
       tournamentId: tournamentId,
       rankingYear: rankingYear,
       rankingDescription: rankingDescription,
@@ -121,26 +125,26 @@ class SrrTournamentRepository {
   }
 
   Future<void> deleteTournament(int tournamentId) {
-    return _apiClient.deleteTournament(tournamentId);
+    return _tournamentApi.deleteTournament(tournamentId);
   }
 
   Future<SrrTournamentSeedingSnapshot> fetchTournamentSeeding({
     required int tournamentId,
   }) {
-    return _apiClient.fetchTournamentSeeding(tournamentId: tournamentId);
+    return _tournamentApi.fetchTournamentSeeding(tournamentId: tournamentId);
   }
 
   Future<SrrTournamentSeedingSnapshot> generateTournamentSeeding({
     required int tournamentId,
   }) {
-    return _apiClient.generateTournamentSeeding(tournamentId: tournamentId);
+    return _tournamentApi.generateTournamentSeeding(tournamentId: tournamentId);
   }
 
   Future<SrrTournamentSeedingSnapshot> reorderTournamentSeeding({
     required int tournamentId,
     required List<int> orderedPlayerIds,
   }) {
-    return _apiClient.reorderTournamentSeeding(
+    return _tournamentApi.reorderTournamentSeeding(
       tournamentId: tournamentId,
       orderedPlayerIds: orderedPlayerIds,
     );
@@ -149,20 +153,20 @@ class SrrTournamentRepository {
   Future<SrrTournamentSeedingDeleteResult> deleteTournamentSeeding({
     required int tournamentId,
   }) {
-    return _apiClient.deleteTournamentSeeding(tournamentId: tournamentId);
+    return _tournamentApi.deleteTournamentSeeding(tournamentId: tournamentId);
   }
 
   Future<SrrTournamentGroupsSnapshot> fetchTournamentGroups({
     required int tournamentId,
   }) {
-    return _apiClient.fetchTournamentGroups(tournamentId: tournamentId);
+    return _tournamentApi.fetchTournamentGroups(tournamentId: tournamentId);
   }
 
   Future<SrrTournamentGroupsSnapshot> generateTournamentGroups({
     required int tournamentId,
     required String method,
   }) {
-    return _apiClient.generateTournamentGroups(
+    return _tournamentApi.generateTournamentGroups(
       tournamentId: tournamentId,
       method: method,
     );
@@ -171,7 +175,7 @@ class SrrTournamentRepository {
   Future<SrrTournamentGroupsDeleteResult> deleteTournamentGroups({
     required int tournamentId,
   }) {
-    return _apiClient.deleteTournamentGroups(tournamentId: tournamentId);
+    return _tournamentApi.deleteTournamentGroups(tournamentId: tournamentId);
   }
 
   Future<SrrMatchupGenerateResult> generateTournamentGroupMatchups({
@@ -179,7 +183,7 @@ class SrrTournamentRepository {
     required int groupNumber,
     required String roundOneMethod,
   }) {
-    return _apiClient.generateTournamentGroupMatchups(
+    return _tournamentApi.generateTournamentGroupMatchups(
       tournamentId: tournamentId,
       groupNumber: groupNumber,
       roundOneMethod: roundOneMethod,
@@ -190,7 +194,7 @@ class SrrTournamentRepository {
     required int tournamentId,
     required int groupNumber,
   }) {
-    return _apiClient.deleteCurrentTournamentGroupMatchups(
+    return _tournamentApi.deleteCurrentTournamentGroupMatchups(
       tournamentId: tournamentId,
       groupNumber: groupNumber,
     );
