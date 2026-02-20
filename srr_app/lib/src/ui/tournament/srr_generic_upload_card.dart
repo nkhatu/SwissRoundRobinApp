@@ -12,6 +12,7 @@
 // 
 import 'package:flutter/material.dart';
 
+import '../helpers/srr_form_helpers.dart';
 import '../helpers/srr_split_action_button.dart';
 
 class SrrUploadStatItem {
@@ -231,11 +232,11 @@ class SrrGenericUploadCard extends StatelessWidget {
             ],
             if (uploadError != null) ...[
               const SizedBox(height: 8),
-              _InlineError(message: uploadError!),
+              SrrInlineError(message: uploadError!),
             ],
             if (applyError != null) ...[
               const SizedBox(height: 8),
-              _InlineError(message: applyError!),
+              SrrInlineError(message: applyError!),
             ],
             if (onInvalidRowTap != null &&
                 previewRows.any((row) => !row.isValid)) ...[
@@ -735,30 +736,6 @@ class _UploadPreviewTableState extends State<_UploadPreviewTable> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: theme.colorScheme.onErrorContainer),
       ),
     );
   }

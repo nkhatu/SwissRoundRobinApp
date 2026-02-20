@@ -16,7 +16,7 @@
     }
   ],
   "hosting": {
-    "site": "your-firebase-project-id",
+    "site": "your-hosting-site-id",
     "public": "srr_app/build/web",
     "ignore": [
       "firebase.json",

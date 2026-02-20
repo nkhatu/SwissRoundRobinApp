@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------
-// srr_app/lib/src/ui/srr_tournament_editor_card.dart
+// srr_app/lib/src/ui/tournament/srr_tournament_editor_card.dart
 // ---------------------------------------------------------------------------
 //
 // Purpose:
-// - Renders reusable tournament form controls for create/edit operations.
+// - Presents the editable tournament metadata form with a reusable controller.
 // Architecture:
-// - Reusable presentation component encapsulating tournament metadata inputs.
-// - Keeps field-level form concerns isolated from page-level orchestration.
+// - MVC pattern: `TournamentFormController` owns all field controllers/logic and notifies the view.
+// - The widget focuses purely on layout, so other feature forms can reuse the controller/view helpers.
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
 //
@@ -14,7 +14,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/srr_models.dart';
 import '../../theme/srr_display_preferences_controller.dart';
-import '../helpers/srr_split_action_button.dart';
+import '../helpers/srr_form_helpers.dart';
+import 'tournament_form_controller.dart';
 
 class SrrTournamentEditorCard extends StatefulWidget {
   const SrrTournamentEditorCard({
@@ -33,256 +34,412 @@ class SrrTournamentEditorCard extends StatefulWidget {
     required String tournamentName,
     required String status,
     required SrrTournamentMetadata metadata,
-  })
-  onSave;
+  }) onSave;
 
   @override
-  State<SrrTournamentEditorCard> createState() =>
-      _SrrTournamentEditorCardState();
+  State<SrrTournamentEditorCard> createState() => _SrrTournamentEditorCardState();
 }
 
 class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
-  final TextEditingController _tournamentNameController =
-      TextEditingController();
-  final TextEditingController _tournamentStrengthController =
-      TextEditingController();
-  final TextEditingController _singlesMaxParticipantsController =
-      TextEditingController();
-  final TextEditingController _doublesMaxTeamsController =
-      TextEditingController();
-  final TextEditingController _roundTimeLimitMinutesController =
-      TextEditingController();
-  final TextEditingController _srrRoundsController = TextEditingController();
-  final TextEditingController _numberOfGroupsController =
-      TextEditingController();
-  final TextEditingController _tournamentVenueController =
-      TextEditingController();
-  final TextEditingController _tournamentDirectorController =
-      TextEditingController();
-  final TextEditingController _chiefRefereeFirstNameController =
-      TextEditingController();
-  final TextEditingController _chiefRefereeLastNameController =
-      TextEditingController();
-
-  late final List<_RefereeNameRow> _refereeRows;
-  late DateTime _tournamentStartDateTime;
-  late DateTime _tournamentEndDateTime;
-
-  String _tournamentType = 'open';
-  String _tournamentSubType = 'singles';
-  String _tournamentCategory = 'men';
-  String _tournamentSubCategory = 'senior';
-  String _tournamentStatus = 'setup';
-
-  bool _saving = false;
-  String? _saveError;
+  late TournamentFormController _controller;
 
   @override
   void initState() {
     super.initState();
-    _refereeRows = <_RefereeNameRow>[];
-    _seedFromTournament();
+    _controller = TournamentFormController(tournament: widget.tournament)
+      ..addListener(_onControllerUpdated);
   }
 
   @override
   void dispose() {
-    _tournamentNameController.dispose();
-    _tournamentStrengthController.dispose();
-    _singlesMaxParticipantsController.dispose();
-    _doublesMaxTeamsController.dispose();
-    _roundTimeLimitMinutesController.dispose();
-    _srrRoundsController.dispose();
-    _numberOfGroupsController.dispose();
-    _tournamentVenueController.dispose();
-    _tournamentDirectorController.dispose();
-    _chiefRefereeFirstNameController.dispose();
-    _chiefRefereeLastNameController.dispose();
-    for (final referee in _refereeRows) {
-      referee.dispose();
-    }
+    _controller.removeListener(_onControllerUpdated);
+    _controller.dispose();
     super.dispose();
   }
 
-  void _seedFromTournament() {
-    final tournament = widget.tournament;
-    final metadata = tournament.metadata;
+  void _onControllerUpdated() => setState(() {});
 
-    _tournamentNameController.text = tournament.name;
-    _tournamentType = metadata?.type ?? 'open';
-    _tournamentSubType = metadata?.subType ?? 'singles';
-    _tournamentCategory = metadata?.category ?? 'men';
-    _tournamentSubCategory = metadata?.subCategory ?? 'senior';
-    _tournamentStatus = tournament.status;
-    _tournamentStartDateTime =
-        metadata?.startDateTime.toLocal() ?? DateTime.now();
-    _tournamentEndDateTime =
-        metadata?.endDateTime.toLocal() ??
-        _tournamentStartDateTime.add(const Duration(hours: 2));
+  Future<void> _handleSave() async {
+    await _controller.save(onSave: widget.onSave);
+  }
 
-    _tournamentStrengthController.text = (metadata?.strength ?? 1.0)
-        .toStringAsFixed(1);
-    _singlesMaxParticipantsController.text =
-        '${metadata?.singlesMaxParticipants ?? 32}';
-    _doublesMaxTeamsController.text = '${metadata?.doublesMaxTeams ?? 16}';
-    _roundTimeLimitMinutesController.text =
-        '${metadata?.roundTimeLimitMinutes ?? 30}';
-    _srrRoundsController.text = '${metadata?.srrRounds ?? 7}';
-    _numberOfGroupsController.text = '${metadata?.numberOfGroups ?? 4}';
-    _tournamentVenueController.text = metadata?.venueName ?? '';
-    _tournamentDirectorController.text = metadata?.directorName ?? '';
-    _chiefRefereeFirstNameController.text =
-        metadata?.chiefReferee.firstName ?? '';
-    _chiefRefereeLastNameController.text =
-        metadata?.chiefReferee.lastName ?? '';
-
-    if (metadata?.referees != null && metadata!.referees.isNotEmpty) {
-      for (final referee in metadata.referees) {
-        _refereeRows.add(
-          _RefereeNameRow(
-            firstName: referee.firstName,
-            lastName: referee.lastName,
-          ),
-        );
+  Future<void> _pickTournamentDateTime({required bool isStart}) async {
+    final initial = isStart ? _controller.startDateTime : _controller.endDateTime;
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now().subtract(const Duration(days: 365 * 2)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (selectedDate == null) return;
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (selectedTime == null) return;
+    final combined = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+    setState(() {
+      if (isStart) {
+        _controller.startDateTime = combined;
+      } else {
+        _controller.endDateTime = combined;
       }
-    }
-    if (_refereeRows.isEmpty) {
-      _refereeRows.add(_RefereeNameRow());
-    }
+    });
   }
 
-  void _addRefereeRow() {
-    setState(() => _refereeRows.add(_RefereeNameRow()));
-  }
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final derivedTables = _controller.derivedTables;
 
-  void _removeRefereeRow(int index) {
-    if (_refereeRows.length <= 1) return;
-    final removed = _refereeRows.removeAt(index);
-    removed.dispose();
-    setState(() {});
-  }
-
-  int _parsePositiveEven(String rawValue, String label) {
-    final value = int.tryParse(rawValue.trim());
-    if (value == null || value < 2 || value.isOdd) {
-      throw FormatException('$label must be an even integer >= 2.');
-    }
-    return value;
-  }
-
-  int? _derivedNumberOfTablesPreview() {
-    final singles = int.tryParse(_singlesMaxParticipantsController.text.trim());
-    final doubles = int.tryParse(_doublesMaxTeamsController.text.trim());
-    if (singles == null || doubles == null || singles < 2 || doubles < 2) {
-      return null;
-    }
-    if (singles.isOdd || doubles.isOdd) return null;
-    return _tournamentSubType == 'singles' ? singles ~/ 2 : doubles ~/ 2;
-  }
-
-  SrrTournamentMetadata _buildTournamentMetadata() {
-    final strength = double.tryParse(_tournamentStrengthController.text.trim());
-    if (strength == null || strength < 0 || strength > 1) {
-      throw const FormatException(
-        'Tournament strength must be a number between 0 and 1.',
-      );
-    }
-    final singlesMaxParticipants = _parsePositiveEven(
-      _singlesMaxParticipantsController.text,
-      'Singles max participants',
-    );
-    final doublesMaxTeams = _parsePositiveEven(
-      _doublesMaxTeamsController.text,
-      'Doubles max teams',
-    );
-    final roundTimeLimitMinutes = int.tryParse(
-      _roundTimeLimitMinutesController.text.trim(),
-    );
-    if (roundTimeLimitMinutes == null ||
-        roundTimeLimitMinutes < 1 ||
-        roundTimeLimitMinutes > 600) {
-      throw const FormatException(
-        'Tournament round timelimit must be an integer between 1 and 600 minutes.',
-      );
-    }
-    final srrRounds = int.tryParse(_srrRoundsController.text.trim());
-    if (srrRounds == null || srrRounds < 1 || srrRounds > 200) {
-      throw const FormatException(
-        'No. of SRR rounds must be an integer between 1 and 200.',
-      );
-    }
-    final numberOfGroups = int.tryParse(_numberOfGroupsController.text.trim());
-    if (numberOfGroups == null || numberOfGroups < 2 || numberOfGroups > 64) {
-      throw const FormatException(
-        'No. of groups must be an integer between 2 and 64.',
-      );
-    }
-    final participantLimit = _tournamentSubType == 'singles'
-        ? singlesMaxParticipants
-        : doublesMaxTeams;
-    if (numberOfGroups > participantLimit) {
-      throw FormatException(
-        'No. of groups cannot exceed participant limit ($participantLimit).',
-      );
-    }
-
-    final venueName = _tournamentVenueController.text.trim();
-    if (venueName.length < 2) {
-      throw const FormatException('Tournament venue name is required.');
-    }
-
-    final directorName = _tournamentDirectorController.text.trim();
-    if (directorName.length < 2) {
-      throw const FormatException('Tournament director name is required.');
-    }
-
-    final chiefFirstName = _chiefRefereeFirstNameController.text.trim();
-    final chiefLastName = _chiefRefereeLastNameController.text.trim();
-    if (chiefFirstName.isEmpty || chiefLastName.isEmpty) {
-      throw const FormatException(
-        'Chief referee first and last name are required.',
-      );
-    }
-
-    final referees = _refereeRows
-        .map((row) => row.toPersonNameOrNull())
-        .whereType<SrrPersonName>()
-        .toList(growable: false);
-    if (referees.isEmpty) {
-      throw const FormatException(
-        'At least one tournament referee is required.',
-      );
-    }
-
-    final numberOfTables = _tournamentSubType == 'singles'
-        ? singlesMaxParticipants ~/ 2
-        : doublesMaxTeams ~/ 2;
-    if (!_tournamentEndDateTime.isAfter(_tournamentStartDateTime)) {
-      throw const FormatException(
-        'Tournament end date/time must be after start date/time.',
-      );
-    }
-
-    return SrrTournamentMetadata(
-      type: _tournamentType,
-      subType: _tournamentSubType,
-      strength: strength,
-      startDateTime: _tournamentStartDateTime.toUtc(),
-      endDateTime: _tournamentEndDateTime.toUtc(),
-      srrRounds: srrRounds,
-      numberOfGroups: numberOfGroups,
-      singlesMaxParticipants: singlesMaxParticipants,
-      doublesMaxTeams: doublesMaxTeams,
-      numberOfTables: numberOfTables,
-      roundTimeLimitMinutes: roundTimeLimitMinutes,
-      venueName: venueName,
-      directorName: directorName,
-      referees: referees,
-      chiefReferee: SrrPersonName(
-        firstName: chiefFirstName,
-        lastName: chiefLastName,
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(theme),
+            const SizedBox(height: 24),
+            _buildFormSection(
+              title: 'General',
+              subtitle: 'Identity, status, and metadata',
+              children: [
+                _buildTextField(
+                  controller: _controller.tournamentNameController,
+                  label: 'Tournament name',
+                ),
+                _buildDropdown(
+                  label: 'State',
+                  value: _controller.tournamentStatus,
+                  options: TournamentFormController.statusOptions,
+                  onChanged: (value) {
+                    _controller.tournamentStatus = value;
+                    _controller.notifyListeners();
+                  },
+                ),
+                _buildDropdown(
+                  label: 'Type',
+                  value: _controller.tournamentType,
+                  options: TournamentFormController.typeOptions,
+                  onChanged: (value) {
+                    _controller.tournamentType = value;
+                    _controller.notifyListeners();
+                  },
+                ),
+                _buildDropdown(
+                  label: 'Sub type',
+                  value: _controller.tournamentSubType,
+                  options: TournamentFormController.subTypeOptions,
+                  onChanged: (value) {
+                    _controller.tournamentSubType = value;
+                    _controller.notifyListeners();
+                  },
+                ),
+                _buildNumericField(
+                  controller: _controller.tournamentStrengthController,
+                  label: 'Strength (0.0 - 1.0)',
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildFormSection(
+              title: 'Categories & Limits',
+              subtitle: 'Player caps and classification',
+              children: [
+                _buildDropdown(
+                  label: 'Category',
+                  value: _controller.tournamentCategory,
+                  options: TournamentFormController.categoryOptions,
+                  onChanged: (value) {
+                    _controller.tournamentCategory = value;
+                    _controller.notifyListeners();
+                  },
+                ),
+                _buildDropdown(
+                  label: 'Sub category',
+                  value: _controller.tournamentSubCategory,
+                  options: TournamentFormController.subCategoryOptions,
+                  onChanged: (value) {
+                    _controller.tournamentSubCategory = value;
+                    _controller.notifyListeners();
+                  },
+                ),
+                _buildNumericField(
+                  controller: _controller.singlesMaxParticipantsController,
+                  label: 'Singles max participants',
+                ),
+                _buildNumericField(
+                  controller: _controller.doublesMaxTeamsController,
+                  label: 'Doubles max teams',
+                ),
+                _buildNumericField(
+                  controller: _controller.roundTimeLimitMinutesController,
+                  label: 'Round time limit (min)',
+                ),
+                _buildNumericField(
+                  controller: _controller.srrRoundsController,
+                  label: 'SRR rounds',
+                ),
+                _buildNumericField(
+                  controller: _controller.numberOfGroupsController,
+                  label: 'Groups',
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildFormSection(
+              title: 'Officials',
+              subtitle: 'Chief referee plus group of referees',
+              children: [
+                _buildTextField(
+                  controller: _controller.chiefRefereeFirstNameController,
+                  label: 'Chief referee first name',
+                ),
+                _buildTextField(
+                  controller: _controller.chiefRefereeLastNameController,
+                  label: 'Chief referee last name',
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildFormSection(
+              title: 'Venue & Schedule',
+              subtitle: 'Location and timeline',
+              children: [
+                _buildTextField(
+                  controller: _controller.venueController,
+                  label: 'Venue name',
+                ),
+                _buildTextField(
+                  controller: _controller.directorController,
+                  label: 'Director name',
+                ),
+                _buildDateButton(
+                  label: 'Start',
+                  dateTime: _controller.startDateTime,
+                  onPressed: () => _pickTournamentDateTime(isStart: true),
+                ),
+                _buildDateButton(
+                  label: 'End',
+                  dateTime: _controller.endDateTime,
+                  onPressed: () => _pickTournamentDateTime(isStart: false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              derivedTables == null
+                  ? 'Tables will auto-calculate once valid limits exist.'
+                  : 'Estimated tables: $derivedTables',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _controller.isSaving ? null : _controller.addReferee,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Add Referee'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: widget.canConfigure && !_controller.isSaving
+                      ? _handleSave
+                      : null,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save Tournament'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 26,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              children: _controller.refereeRows
+                  .asMap()
+                  .entries
+                  .map((entry) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: entry.value.firstNameController,
+                                label: 'Referee ${entry.key + 1} first name',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                controller: entry.value.lastNameController,
+                                label: 'Referee ${entry.key + 1} last name',
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove referee',
+                              onPressed: _controller.isSaving
+                                  ? null
+                                  : () => _controller.removeReferee(entry.key),
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(growable: false),
+            ),
+            if (!widget.canConfigure)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text(
+                  'Tournament editing is restricted to admin accounts.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            if (_controller.error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SrrInlineError(message: _controller.error!),
+              ),
+          ],
+        ),
       ),
-      category: _tournamentCategory,
-      subCategory: _tournamentSubCategory,
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Edit Tournament',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Structured metadata capture with grouped sections.',
+          style: theme.textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormSection({
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 14),
+          ..._interleaveFields(children),
+        ],
+      ),
+    );
+  }
+
+  Iterable<Widget> _interleaveFields(List<Widget> fields) sync* {
+    for (var index = 0; index < fields.length; index++) {
+      yield fields[index];
+      if (index < fields.length - 1) yield const SizedBox(height: 12);
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+    );
+  }
+
+  Widget _buildNumericField({
+    required TextEditingController controller,
+    required String label,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      items: options
+          .map((entry) => DropdownMenuItem(value: entry, child: Text(entry.capitalize())))
+          .toList(growable: false),
+      onChanged: (updated) {
+        if (updated == null) return;
+        onChanged(updated);
+      },
+    );
+  }
+
+  Widget _buildDateButton({
+    required String label,
+    required DateTime dateTime,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: onPressed,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.calendar_month_outlined, size: 18),
+          const SizedBox(width: 8),
+          Text('$label: ${_formatDateTimeLocal(dateTime)}'),
+        ],
+      ),
     );
   }
 
@@ -293,504 +450,14 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
     );
   }
 
-  Future<void> _pickTournamentDateTime({required bool isStart}) async {
-    if (_saving) return;
-    final currentValue = isStart
-        ? _tournamentStartDateTime
-        : _tournamentEndDateTime;
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: currentValue,
-      firstDate: DateTime(2010),
-      lastDate: DateTime(2100),
-    );
-    if (pickedDate == null || !mounted) return;
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(currentValue),
-    );
-    if (pickedTime == null || !mounted) return;
-
-    final next = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
-    setState(() {
-      if (isStart) {
-        _tournamentStartDateTime = next;
-        if (!_tournamentEndDateTime.isAfter(next)) {
-          _tournamentEndDateTime = next.add(const Duration(hours: 2));
-        }
-      } else {
-        _tournamentEndDateTime = next;
-      }
-    });
-  }
-
-  Future<void> _saveTournament() async {
-    if (!widget.canConfigure || _saving) return;
-
-    setState(() {
-      _saving = true;
-      _saveError = null;
-    });
-
-    try {
-      final metadata = _buildTournamentMetadata();
-      await widget.onSave(
-        tournamentId: widget.tournament.id,
-        tournamentName: _tournamentNameController.text.trim(),
-        status: _tournamentStatus,
-        metadata: metadata,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tournament updated.')));
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _saveError = error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final derivedTables = _derivedNumberOfTablesPreview();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Edit Tournament',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 340,
-                  child: TextField(
-                    controller: _tournamentNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament name',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _tournamentStatus,
-                    decoration: const InputDecoration(labelText: 'State'),
-                    items: const [
-                      DropdownMenuItem(value: 'setup', child: Text('Setup')),
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(
-                        value: 'completed',
-                        child: Text('Completed'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _tournamentStatus = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _tournamentType,
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament type',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'national',
-                        child: Text('National'),
-                      ),
-                      DropdownMenuItem(value: 'open', child: Text('Open')),
-                      DropdownMenuItem(
-                        value: 'regional',
-                        child: Text('Regional'),
-                      ),
-                      DropdownMenuItem(value: 'club', child: Text('Club')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _tournamentType = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: TextField(
-                    controller: _tournamentStrengthController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament strength',
-                      hintText: '0.0 - 1.0',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _tournamentSubType,
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament sub type',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'singles',
-                        child: Text('Singles'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'doubles',
-                        child: Text('Doubles'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _tournamentSubType = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 160,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _tournamentCategory,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: const [
-                      DropdownMenuItem(value: 'men', child: Text('Men')),
-                      DropdownMenuItem(value: 'women', child: Text('Women')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _tournamentCategory = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _tournamentSubCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Sub category',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'junior', child: Text('Junior')),
-                      DropdownMenuItem(value: 'senior', child: Text('Senior')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _tournamentSubCategory = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _singlesMaxParticipantsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Singles max participants',
-                      hintText: 'Even number',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _doublesMaxTeamsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Doubles max teams',
-                      hintText: 'Even number',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _roundTimeLimitMinutesController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Round timelimit (minutes)',
-                      hintText: '1 - 600',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _srrRoundsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'No. of SRR rounds',
-                      hintText: '1 - 200',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _numberOfGroupsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'No. of groups',
-                      hintText: '2 - 64',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              derivedTables == null
-                  ? 'Tournament no. of tables: enter valid even limits'
-                  : 'Tournament no. of tables (${_tournamentSubType == 'singles' ? 'singles max participants / 2' : 'doubles max teams / 2'}): $derivedTables',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 320,
-                  child: TextField(
-                    controller: _tournamentVenueController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament venue name',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 320,
-                  child: TextField(
-                    controller: _tournamentDirectorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tournament director name',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 320,
-                  child: SrrSplitActionButton(
-                    label:
-                        'Start: ${_formatDateTimeLocal(_tournamentStartDateTime)}',
-                    variant: SrrSplitActionButtonVariant.outlined,
-                    leadingIcon: Icons.event,
-                    maxLines: 2,
-                    onPressed: _saving
-                        ? null
-                        : () => _pickTournamentDateTime(isStart: true),
-                  ),
-                ),
-                SizedBox(
-                  width: 320,
-                  child: SrrSplitActionButton(
-                    label:
-                        'End: ${_formatDateTimeLocal(_tournamentEndDateTime)}',
-                    variant: SrrSplitActionButtonVariant.outlined,
-                    leadingIcon: Icons.event_available,
-                    maxLines: 2,
-                    onPressed: _saving
-                        ? null
-                        : () => _pickTournamentDateTime(isStart: false),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Chief Referee',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _chiefRefereeFirstNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Chief referee first name',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _chiefRefereeLastNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Chief referee last name',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Text(
-                  'Tournament Referees',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                SizedBox(
-                  width: 220,
-                  child: SrrSplitActionButton(
-                    label: 'Add Referee',
-                    variant: SrrSplitActionButtonVariant.outlined,
-                    leadingIcon: Icons.add,
-                    onPressed: _saving ? null : _addRefereeRow,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ..._refereeRows.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: TextField(
-                        controller: entry.value.firstNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Referee ${entry.key + 1} first name',
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 220,
-                      child: TextField(
-                        controller: entry.value.lastNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Referee ${entry.key + 1} last name',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Remove referee',
-                      onPressed: _saving
-                          ? null
-                          : () => _removeRefereeRow(entry.key),
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: 260,
-              child: SrrSplitActionButton(
-                label: _saving ? 'Saving...' : 'Save Tournament',
-                variant: SrrSplitActionButtonVariant.filled,
-                leadingIcon: Icons.save,
-                onPressed: widget.canConfigure && !_saving
-                    ? _saveTournament
-                    : null,
-              ),
-            ),
-            if (!widget.canConfigure) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Tournament editing is restricted to admin accounts.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (_saveError != null) ...[
-              const SizedBox(height: 8),
-              _InlineError(message: _saveError!),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RefereeNameRow {
-  _RefereeNameRow({String? firstName, String? lastName})
-    : firstNameController = TextEditingController(text: firstName ?? ''),
-      lastNameController = TextEditingController(text: lastName ?? '');
-
-  final TextEditingController firstNameController;
-  final TextEditingController lastNameController;
-
-  void dispose() {
-    firstNameController.dispose();
-    lastNameController.dispose();
-  }
-
-  SrrPersonName? toPersonNameOrNull() {
-    final firstName = firstNameController.text.trim();
-    final lastName = lastNameController.text.trim();
-    if (firstName.isEmpty && lastName.isEmpty) return null;
-    if (firstName.isEmpty || lastName.isEmpty) {
-      throw const FormatException(
-        'Each referee row must include both first and last name.',
-      );
+  void didUpdateWidget(covariant SrrTournamentEditorCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tournament.id != widget.tournament.id) {
+      _controller.dispose();
+      final newController = TournamentFormController(tournament: widget.tournament)
+        ..addListener(_onControllerUpdated);
+      _controller = newController;
     }
-    return SrrPersonName(firstName: firstName, lastName: lastName);
-  }
-}
-
-class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: theme.colorScheme.onErrorContainer),
-      ),
-    );
   }
 }

@@ -794,25 +794,27 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Chip(
-                  avatar: const Icon(Icons.verified_user, size: 16),
-                  label: Text(
-                    user == null
-                        ? 'Session not loaded'
-                        : '${user.displayName} (${user.role})',
-                  ),
+                _buildInfoBadge(
+                  context,
+                  icon: Icons.verified_user,
+                  label: user == null
+                      ? 'Session not loaded'
+                      : '${user.displayName} (${user.role})',
                 ),
-                Chip(
-                  avatar: const Icon(Icons.schedule, size: 16),
-                  label: Text('Last action: $lastRefresh'),
+                const SizedBox(width: 8),
+                _buildInfoBadge(
+                  context,
+                  icon: Icons.schedule,
+                  label: 'Last action: $lastRefresh',
                 ),
-                Chip(
-                  avatar: const Icon(Icons.inventory_2_outlined, size: 16),
-                  label: Text('Tournaments: ${_tournaments.length}'),
+                const SizedBox(width: 8),
+                _buildInfoBadge(
+                  context,
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Tournaments: ${_tournaments.length}',
                 ),
               ],
             ),
@@ -1169,19 +1171,60 @@ class _SrrTournamentSetupPageState extends State<SrrTournamentSetupPage> {
                     ),
                   ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: 300,
-                  child: SrrSplitActionButton(
-                    label: 'Create Tournament',
-                    variant: SrrSplitActionButtonVariant.filled,
-                    leadingIcon: Icons.add_circle_outline,
-                    onPressed: _busy || _loading ? null : _createTournament,
+                ElevatedButton.icon(
+                  onPressed: _busy || _loading ? null : _createTournament,
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                  label: const Text('Create Tournament'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(220, 38),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                    textStyle: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(letterSpacing: 0.25),
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoBadge(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(letterSpacing: 0.1),
+          ),
+        ],
       ),
     );
   }
