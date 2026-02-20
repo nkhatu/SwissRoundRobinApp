@@ -613,48 +613,8 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
                             ),
                           ),
                         SizedBox(
-                          width: 460,
-                          child: ToggleButtons(
-                            isSelected: <bool>[
-                              _selectedMethod ==
-                                  SrrTournamentGroupingMethod.interleaved,
-                              _selectedMethod ==
-                                  SrrTournamentGroupingMethod.snake,
-                            ],
-                            onPressed: _busy
-                                ? null
-                                : (index) {
-                                    setState(() {
-                                      _selectedMethod = index == 0
-                                          ? SrrTournamentGroupingMethod
-                                                .interleaved
-                                          : SrrTournamentGroupingMethod.snake;
-                                    });
-                                  },
-                            constraints: const BoxConstraints(
-                              minWidth: 220,
-                              minHeight: 50,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            children: const [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.drag_indicator, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Interleaved'),
-                                ],
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.swap_horiz, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Snake'),
-                                ],
-                              ),
-                            ],
-                          ),
+                          width: 420,
+                          child: _buildGroupingMethodSwitch(),
                         ),
                         SizedBox(
                           width: 220,
@@ -730,6 +690,42 @@ class _SrrTournamentGroupsPageState extends State<SrrTournamentGroupsPage> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGroupingMethodSwitch() {
+    final isInterleaved =
+        _selectedMethod == SrrTournamentGroupingMethod.interleaved;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.drag_indicator, size: 18),
+            const SizedBox(width: 8),
+            const Text('Interleaved'),
+          ],
+        ),
+        Switch(
+          value: isInterleaved,
+          onChanged: _busy
+              ? null
+              : (value) {
+                  setState(() {
+                    _selectedMethod = value
+                        ? SrrTournamentGroupingMethod.interleaved
+                        : SrrTournamentGroupingMethod.snake;
+                  });
+                },
+        ),
+        Row(
+          children: [
+            Icon(Icons.swap_horiz, size: 18),
+            const SizedBox(width: 8),
+            const Text('Snake'),
+          ],
+        ),
+      ],
     );
   }
 }

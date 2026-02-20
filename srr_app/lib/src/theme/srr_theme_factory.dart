@@ -89,7 +89,7 @@ class SrrThemeFactory {
           textStyle: textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 40),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -102,7 +102,7 @@ class SrrThemeFactory {
             fontWeight: FontWeight.w600,
           ),
           side: BorderSide(color: colorScheme.outline),
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 40),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),

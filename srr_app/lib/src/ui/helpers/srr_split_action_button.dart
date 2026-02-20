@@ -24,7 +24,7 @@ class SrrSplitActionButton extends StatelessWidget {
     this.variant = SrrSplitActionButtonVariant.filled,
     this.leadingIcon,
     this.trailingIcon = Icons.arrow_forward_ios_rounded,
-    this.height = 52,
+    this.height = 44,
     this.maxLines = 1,
     this.labelTextAlign = TextAlign.center,
   });

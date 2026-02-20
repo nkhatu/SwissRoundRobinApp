@@ -50,13 +50,13 @@ class SrrSplitActionButtonTheme
 
   factory SrrSplitActionButtonTheme.fromColorScheme(ColorScheme scheme) {
     return SrrSplitActionButtonTheme(
-      borderRadius: 16,
+      borderRadius: 14,
       borderWidth: 1,
-      actionSegmentWidth: 52,
-      iconSize: 15,
-      labelHorizontalPadding: 12,
-      labelVerticalPadding: 8,
-      dividerHeightInset: 18,
+      actionSegmentWidth: 44,
+      iconSize: 14,
+      labelHorizontalPadding: 10,
+      labelVerticalPadding: 6,
+      dividerHeightInset: 12,
       shadowBlur: 14,
       shadowOffsetY: 5,
       filledShadowOpacity: 0.17,
