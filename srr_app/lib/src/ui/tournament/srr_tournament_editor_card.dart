@@ -108,132 +108,14 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
           children: [
             _buildHeader(theme),
             const SizedBox(height: 24),
-            _buildFormSection(
-              title: 'General',
-              subtitle: 'Identity, status, and metadata',
-              children: [
-                _buildTextField(
-                  controller: _controller.tournamentNameController,
-                  label: 'Tournament name',
-                ),
-                _buildDropdown(
-                  label: 'State',
-                  value: _controller.tournamentStatus,
-                  options: TournamentFormController.statusOptions,
-                  onChanged: (value) {
-                    _controller.tournamentStatus = value;
-                    _controller.notifyListeners();
-                  },
-                ),
-                _buildDropdown(
-                  label: 'Type',
-                  value: _controller.tournamentType,
-                  options: TournamentFormController.typeOptions,
-                  onChanged: (value) {
-                    _controller.tournamentType = value;
-                    _controller.notifyListeners();
-                  },
-                ),
-                _buildDropdown(
-                  label: 'Sub type',
-                  value: _controller.tournamentSubType,
-                  options: TournamentFormController.subTypeOptions,
-                  onChanged: (value) {
-                    _controller.tournamentSubType = value;
-                    _controller.notifyListeners();
-                  },
-                ),
-                _buildNumericField(
-                  controller: _controller.tournamentStrengthController,
-                  label: 'Strength (0.0 - 1.0)',
-                ),
-              ],
-            ),
+            const SizedBox(height: 24),
+            _buildGeneralSection(),
             const SizedBox(height: 18),
-            _buildFormSection(
-              title: 'Categories & Limits',
-              subtitle: 'Player caps and classification',
-              children: [
-                _buildDropdown(
-                  label: 'Category',
-                  value: _controller.tournamentCategory,
-                  options: TournamentFormController.categoryOptions,
-                  onChanged: (value) {
-                    _controller.tournamentCategory = value;
-                    _controller.notifyListeners();
-                  },
-                ),
-                _buildDropdown(
-                  label: 'Sub category',
-                  value: _controller.tournamentSubCategory,
-                  options: TournamentFormController.subCategoryOptions,
-                  onChanged: (value) {
-                    _controller.tournamentSubCategory = value;
-                    _controller.notifyListeners();
-                  },
-                ),
-                _buildNumericField(
-                  controller: _controller.singlesMaxParticipantsController,
-                  label: 'Singles max participants',
-                ),
-                _buildNumericField(
-                  controller: _controller.doublesMaxTeamsController,
-                  label: 'Doubles max teams',
-                ),
-                _buildNumericField(
-                  controller: _controller.roundTimeLimitMinutesController,
-                  label: 'Round time limit (min)',
-                ),
-                _buildNumericField(
-                  controller: _controller.srrRoundsController,
-                  label: 'SRR rounds',
-                ),
-                _buildNumericField(
-                  controller: _controller.numberOfGroupsController,
-                  label: 'Groups',
-                ),
-              ],
-            ),
+            _buildCategoriesSection(),
             const SizedBox(height: 18),
-            _buildFormSection(
-              title: 'Officials',
-              subtitle: 'Chief referee plus group of referees',
-              children: [
-                _buildTextField(
-                  controller: _controller.chiefRefereeFirstNameController,
-                  label: 'Chief referee first name',
-                ),
-                _buildTextField(
-                  controller: _controller.chiefRefereeLastNameController,
-                  label: 'Chief referee last name',
-                ),
-              ],
-            ),
+            _buildVenueSection(),
             const SizedBox(height: 18),
-            _buildFormSection(
-              title: 'Venue & Schedule',
-              subtitle: 'Location and timeline',
-              children: [
-                _buildTextField(
-                  controller: _controller.venueController,
-                  label: 'Venue name',
-                ),
-                _buildTextField(
-                  controller: _controller.directorController,
-                  label: 'Director name',
-                ),
-                _buildDateButton(
-                  label: 'Start',
-                  dateTime: _controller.startDateTime,
-                  onPressed: () => _pickTournamentDateTime(isStart: true),
-                ),
-                _buildDateButton(
-                  label: 'End',
-                  dateTime: _controller.endDateTime,
-                  onPressed: () => _pickTournamentDateTime(isStart: false),
-                ),
-              ],
-            ),
+            _buildOfficialsSection(),
             const SizedBox(height: 20),
             Text(
               derivedTables == null
@@ -246,12 +128,6 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton.icon(
-                  onPressed: _controller.isSaving ? null : _controller.addReferee,
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Add Referee'),
-                ),
-                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: widget.canConfigure && !_controller.isSaving
                       ? _handleSave
@@ -270,13 +146,243 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Column(
-              children: _controller.refereeRows
-                  .asMap()
-                  .entries
-                  .map((entry) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+            if (!widget.canConfigure)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text(
+                  'Tournament editing is restricted to admin accounts.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            if (_controller.error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SrrInlineError(message: _controller.error!),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeneralSection() {
+    return _buildFormSection(
+      title: 'General',
+      subtitle: 'Identity, status, and metadata',
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildTextField(
+                controller: _controller.tournamentNameController,
+                label: 'Tournament name',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                label: 'State',
+                value: _controller.tournamentStatus,
+                options: TournamentFormController.statusOptions,
+                onChanged: (value) {
+                  _controller.tournamentStatus = value;
+                  _controller.notifyListeners();
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                label: 'Type',
+                value: _controller.tournamentType,
+                options: TournamentFormController.typeOptions,
+                onChanged: (value) {
+                  _controller.tournamentType = value;
+                  _controller.notifyListeners();
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                label: 'Sub type',
+                value: _controller.tournamentSubType,
+                options: TournamentFormController.subTypeOptions,
+                onChanged: (value) {
+                  _controller.tournamentSubType = value;
+                  _controller.notifyListeners();
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.tournamentStrengthController,
+                label: 'Strength (0.0 - 1.0)',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoriesSection() {
+    return _buildFormSection(
+      title: 'Categories & Limits',
+      subtitle: 'Player caps and classification',
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdown(
+                label: 'Category',
+                value: _controller.tournamentCategory,
+                options: TournamentFormController.categoryOptions,
+                onChanged: (value) {
+                  _controller.tournamentCategory = value;
+                  _controller.notifyListeners();
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                label: 'Sub category',
+                value: _controller.tournamentSubCategory,
+                options: TournamentFormController.subCategoryOptions,
+                onChanged: (value) {
+                  _controller.tournamentSubCategory = value;
+                  _controller.notifyListeners();
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.roundTimeLimitMinutesController,
+                label: 'Round time limit (min)',
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.singlesMaxParticipantsController,
+                label: 'Singles max participants',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.doublesMaxTeamsController,
+                label: 'Doubles max teams',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.srrRoundsController,
+                label: 'SRR rounds',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildNumericField(
+                controller: _controller.numberOfGroupsController,
+                label: 'Groups',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVenueSection() {
+    return _buildFormSection(
+      title: 'Venue & Schedule',
+      subtitle: 'Location + timeline',
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _controller.venueController,
+                label: 'Venue name',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDateButton(
+                label: 'Start',
+                dateTime: _controller.startDateTime,
+                onPressed: () => _pickTournamentDateTime(isStart: true),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDateButton(
+                label: 'End',
+                dateTime: _controller.endDateTime,
+                onPressed: () => _pickTournamentDateTime(isStart: false),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOfficialsSection() {
+    return _buildFormSection(
+      title: 'Officials',
+      subtitle: 'Director, chief referee, and supporting referees',
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _controller.directorController,
+                label: 'Tournament director name',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField(
+                controller: _controller.chiefRefereeFirstNameController,
+                label: 'Chief referee first name',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField(
+                controller: _controller.chiefRefereeLastNameController,
+                label: 'Chief referee last name',
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _controller.isSaving ? null : _controller.addReferee,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Add referee'),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _controller.refereeRows
+                    .asMap()
+                    .entries
+                    .map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
                             Expanded(
@@ -301,25 +407,14 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
                             ),
                           ],
                         ),
-                      ))
-                  .toList(growable: false),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
             ),
-            if (!widget.canConfigure)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: Text(
-                  'Tournament editing is restricted to admin accounts.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            if (_controller.error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SrrInlineError(message: _controller.error!),
-              ),
           ],
         ),
-      ),
+      ],
     );
   }
 
