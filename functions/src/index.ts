@@ -1472,7 +1472,7 @@ function generateRoundRobin(playerIds: number[]): Array<Array<[number, number]>>
   return rounds;
 }
 
-function toUserRecord(snapshot: FirebaseFirestore.DocumentSnapshot): UserRecord | null {
+function _toUserRecord(snapshot: FirebaseFirestore.DocumentSnapshot): UserRecord | null {
   if (!snapshot.exists) return null;
   const data = snapshot.data() ?? {};
   const roleRaw = toText(data.role);
