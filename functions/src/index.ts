@@ -3523,12 +3523,10 @@ async function resolveTournamentId(tournamentIdInput?: unknown): Promise<number>
 
   const tournaments = await tournamentsRepository.list();
   if (tournaments.length === 0) {
-    const created = await tournamentsRepository.create({
-      name: 'Lavi Tournament',
-      status: 'setup',
-      now: utcNow(),
-    });
-    return created.id;
+    throw new HttpError(
+      404,
+      'No tournaments found. Create a tournament first before using this endpoint.',
+    );
   }
 
   const active = tournaments.find((entry) => entry.status === 'active');
@@ -3921,7 +3919,7 @@ async function seedDemoData(
 
   const now = utcNow();
   const seededTournament = await tournamentsRepository.create({
-    name: 'Lavi Tournament',
+    name: 'Demo Tournament',
     status: includeFixtures ? 'active' : 'setup',
     now,
   });
