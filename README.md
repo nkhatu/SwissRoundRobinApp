@@ -7,6 +7,15 @@ This rewrite uses:
 - A Firebase Cloud Functions backend with **Firestore as the single source of truth**.
 - A Flutter app (`srr_app`) for player and viewer experiences (mobile + web).
 
+## Documentation
+
+- `docs/srr_architecture.md` — production-ready architecture narrative, data model, workflows, and diagrams aligned with the current Flutter + Functions layout.
+- `docs/srr_architecture_slides.md` — slide-style summary you can reuse for presentations or handoffs.
+
+## UI helpers
+
+- `srr_app/lib/src/ui/helpers/srr_form_helpers.dart` provides shared form widgets (inline error banners, string extensions) so tournament/setup screens stay focused on layout and the Catu-inspired theme scale is consistent.
+
 ## Why Firestore + Functions
 
 For live viewing by non-players and multi-device score confirmation, Firestore gives one shared canonical state and Cloud Functions exposes a stable API for Android/iOS/web clients.
