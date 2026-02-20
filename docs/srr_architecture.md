@@ -46,7 +46,7 @@ flowchart TB
         C[Repositories]
     end
     subgraph Backend
-        D[Cloud Functions Entry](Cloud Func)
+        D["Cloud Functions Entry\n(Cloud Func)"]
         E[Backend Repositories & Models]
         F[Firestore / Auth]
     end
