@@ -28,6 +28,8 @@ IOS_EXPORT_OPTIONS_PLIST="${IOS_EXPORT_OPTIONS_PLIST:-}"
 SRR_API_URL="${SRR_API_URL:-https://example.com/api}"
 SRR_SUPPORT_EMAIL="${SRR_SUPPORT_EMAIL:-support@example.com}"
 SRR_PUBLIC_DOMAIN="${SRR_PUBLIC_DOMAIN:-example.com}"
+APP_VERSION="${APP_VERSION:-}"
+APP_BUILD_NUMBER="${APP_BUILD_NUMBER:-}"
 
 GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}"
 GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
@@ -50,6 +52,15 @@ case "$IOS_BUILD_MODE" in
     ;;
 esac
 
+if [[ -n "$APP_VERSION" && ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid APP_VERSION: $APP_VERSION (expected x.y.z)"
+  exit 1
+fi
+if [[ -n "$APP_BUILD_NUMBER" && ! "$APP_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "Invalid APP_BUILD_NUMBER: $APP_BUILD_NUMBER (expected integer)"
+  exit 1
+fi
+
 if [[ "$IOS_TARGET" == "ipa" && "$IOS_BUILD_MODE" == "debug" ]]; then
   echo "IOS_TARGET=ipa does not support debug builds. Use IOS_BUILD_MODE=profile or release."
   exit 1
@@ -70,6 +81,14 @@ define_args=(
   "--dart-define=SRR_PUBLIC_DOMAIN=$SRR_PUBLIC_DOMAIN"
 )
 
+version_args=()
+if [[ -n "$APP_VERSION" ]]; then
+  version_args+=("--build-name=$APP_VERSION")
+fi
+if [[ -n "$APP_BUILD_NUMBER" ]]; then
+  version_args+=("--build-number=$APP_BUILD_NUMBER")
+fi
+
 if [[ -n "$GOOGLE_WEB_CLIENT_ID" ]]; then
   define_args+=("--dart-define=GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
 fi
@@ -85,13 +104,17 @@ fi
 
 if [[ "$IOS_TARGET" == "run" ]]; then
   run_device="${IOS_DEVICE_ID:-ios}"
-  flutter run -d "$run_device" "--$IOS_BUILD_MODE" "${define_args[@]}"
+  flutter run -d "$run_device" "--$IOS_BUILD_MODE" "${version_args[@]}" "${define_args[@]}"
+  if [[ -n "$APP_VERSION" || -n "$APP_BUILD_NUMBER" ]]; then
+    echo "Ran iOS build version: ${APP_VERSION:-from-pubspec}+${APP_BUILD_NUMBER:-from-pubspec}"
+  fi
   echo "iOS deploy complete via flutter run."
   exit 0
 fi
 
 build_args=(
   "--$IOS_BUILD_MODE"
+  "${version_args[@]}"
   "${define_args[@]}"
 )
 
@@ -100,6 +123,9 @@ if [[ "$IOS_TARGET" == "device" ]]; then
     build_args+=("--no-codesign")
   fi
   flutter build ios "${build_args[@]}"
+  if [[ -n "$APP_VERSION" || -n "$APP_BUILD_NUMBER" ]]; then
+    echo "Built iOS device version: ${APP_VERSION:-from-pubspec}+${APP_BUILD_NUMBER:-from-pubspec}"
+  fi
   echo "iOS device build complete. Install from Xcode or run with IOS_TARGET=run."
   exit 0
 fi
@@ -112,4 +138,7 @@ if [[ -n "$IOS_EXPORT_OPTIONS_PLIST" ]]; then
   build_args+=("--export-options-plist=$IOS_EXPORT_OPTIONS_PLIST")
 fi
 flutter build ipa "${build_args[@]}"
+if [[ -n "$APP_VERSION" || -n "$APP_BUILD_NUMBER" ]]; then
+  echo "Built iOS IPA version: ${APP_VERSION:-from-pubspec}+${APP_BUILD_NUMBER:-from-pubspec}"
+fi
 echo "iOS IPA build complete."

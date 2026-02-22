@@ -15,14 +15,16 @@ import 'dart:async';
 import 'package:catu_framework/catu_framework.dart';
 import 'package:flutter/material.dart';
 
-import '../../api/api_exceptions.dart';
 import '../../auth/srr_auth_service.dart';
 import '../../models/srr_models.dart';
 import '../../repositories/srr_dashboard_repository.dart';
+import '../../repositories/srr_tournament_repository.dart';
+import '../../services/srr_tournament_labels.dart';
 import '../../theme/srr_display_preferences_controller.dart';
 import '../helpers/srr_page_scaffold.dart';
 import '../routes/srr_routes.dart';
 import '../helpers/srr_split_action_button.dart';
+import '../tournament/srr_match_score_entry_page.dart';
 import '../tournament/srr_upload_page.dart';
 
 class SrrHomePage extends StatefulWidget {
@@ -31,6 +33,7 @@ class SrrHomePage extends StatefulWidget {
     required this.appState,
     required this.authService,
     required this.dashboardRepository,
+    required this.tournamentRepository,
     required this.analytics,
     required this.displayPreferencesController,
   });
@@ -38,6 +41,7 @@ class SrrHomePage extends StatefulWidget {
   final AppState appState;
   final SrrAuthService authService;
   final SrrDashboardRepository dashboardRepository;
+  final SrrTournamentRepository tournamentRepository;
   final CrashAnalyticsService analytics;
   final SrrDisplayPreferencesController displayPreferencesController;
 
@@ -69,6 +73,10 @@ class _SrrHomePageState extends State<SrrHomePage> {
   @override
   void initState() {
     super.initState();
+    final user = widget.authService.currentAccount;
+    if (user != null && user.isPlayer && !user.isAdmin) {
+      _section = _TournamentSection.myScoreConfirmation;
+    }
     if (_redirectToProfileIfIncomplete()) {
       return;
     }
@@ -144,44 +152,34 @@ class _SrrHomePageState extends State<SrrHomePage> {
     return true;
   }
 
-  Future<void> _confirmMatch(SrrMatch match) async {
-    final data = await showDialog<_ScoreSubmission>(
-      context: context,
-      builder: (context) => _ScoreDialog(match: match),
-    );
-    if (data == null) return;
-
+  Future<void> _enterBoardScores(SrrMatch match) async {
     setState(() => _submittingMatches.add(match.id));
-    try {
-      final updated = await widget.dashboardRepository.confirmMatchScore(
+    final tournamentName = await _resolveTournamentNameForMatch(match);
+    if (!mounted) return;
+    await Navigator.pushNamed(
+      context,
+      SrrRoutes.matchScoreEntry,
+      arguments: SrrMatchScoreEntryPageArguments(
         matchId: match.id,
-        score1: data.score1,
-        score2: data.score2,
+        tournamentId: match.tournamentId,
+        tournamentName: tournamentName,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _submittingMatches.remove(match.id));
+    await _load();
+  }
+
+  Future<String?> _resolveTournamentNameForMatch(SrrMatch match) async {
+    final tournamentId = match.tournamentId;
+    if (tournamentId == null) return null;
+    try {
+      final tournament = await widget.tournamentRepository.fetchTournament(
+        tournamentId,
       );
-      if (!mounted) return;
-
-      final message = switch (updated.status) {
-        SrrMatchStatus.confirmed =>
-          'Score confirmed by both players. Points and standings updated.',
-        SrrMatchStatus.disputed =>
-          'Score submitted. Players currently disagree on the result.',
-        SrrMatchStatus.pending =>
-          'Score submitted. Waiting for the second player confirmation.',
-      };
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-      await _load();
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
-    } finally {
-      if (mounted) {
-        setState(() => _submittingMatches.remove(match.id));
-      }
+      return srrTournamentDropdownLabel(tournament);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -331,7 +329,7 @@ class _SrrHomePageState extends State<SrrHomePage> {
           return _MyMatchesCard(
             matches: _myMatchesFor(user.id),
             submittingMatches: _submittingMatches,
-            onConfirm: _confirmMatch,
+            onBoardEntry: _enterBoardScores,
           );
         }
         return const _ViewerNoticeCard();
@@ -359,7 +357,7 @@ extension on _TournamentSection {
       case _TournamentSection.roundPoints:
         return 'Round Points';
       case _TournamentSection.myScoreConfirmation:
-        return 'My Score Confirmation';
+        return 'My Score Entry';
       case _TournamentSection.roundFeed:
         return 'Round Feed';
     }
@@ -374,7 +372,7 @@ extension on _TournamentSection {
       case _TournamentSection.roundPoints:
         return 'Round Points';
       case _TournamentSection.myScoreConfirmation:
-        return 'My Score Confirmation';
+        return 'My Score Entry';
       case _TournamentSection.roundFeed:
         return 'Round Feed';
     }
@@ -905,12 +903,12 @@ class _MyMatchesCard extends StatelessWidget {
   const _MyMatchesCard({
     required this.matches,
     required this.submittingMatches,
-    required this.onConfirm,
+    required this.onBoardEntry,
   });
 
   final List<SrrMatch> matches;
   final Set<int> submittingMatches;
-  final ValueChanged<SrrMatch> onConfirm;
+  final ValueChanged<SrrMatch> onBoardEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -921,7 +919,7 @@ class _MyMatchesCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'My Score Confirmation',
+              'My Score Entry',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge,
             ),
@@ -949,21 +947,25 @@ class _MyMatchesCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   trailing: match.isConfirmed
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : SizedBox(
-                          width: 178,
-                          child: SrrSplitActionButton(
-                            label: submittingMatches.contains(match.id)
-                                ? 'Submitting...'
-                                : (match.myConfirmation == null
-                                      ? 'Enter Score'
-                                      : 'Update Score'),
-                            variant: SrrSplitActionButtonVariant.outlined,
-                            leadingIcon: Icons.scoreboard_outlined,
-                            onPressed: submittingMatches.contains(match.id)
-                                ? null
-                                : () => onConfirm(match),
-                          ),
+                      ? SrrSplitActionButton(
+                          label: 'View Score Sheet',
+                          variant: SrrSplitActionButtonVariant.outlined,
+                          leadingIcon: Icons.table_chart_outlined,
+                          onPressed: submittingMatches.contains(match.id)
+                              ? null
+                              : () => onBoardEntry(match),
+                        )
+                      : SrrSplitActionButton(
+                          label: submittingMatches.contains(match.id)
+                              ? 'Opening...'
+                              : (match.myConfirmation == null
+                                    ? 'Enter Score Sheet'
+                                    : 'Update Score Sheet'),
+                          variant: SrrSplitActionButtonVariant.filled,
+                          leadingIcon: Icons.edit_note_outlined,
+                          onPressed: submittingMatches.contains(match.id)
+                              ? null
+                              : () => onBoardEntry(match),
                         ),
                 ),
               ),
@@ -1084,116 +1086,5 @@ class _ErrorBanner extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _ScoreSubmission {
-  const _ScoreSubmission({required this.score1, required this.score2});
-
-  final int score1;
-  final int score2;
-}
-
-class _ScoreDialog extends StatefulWidget {
-  const _ScoreDialog({required this.match});
-
-  final SrrMatch match;
-
-  @override
-  State<_ScoreDialog> createState() => _ScoreDialogState();
-}
-
-class _ScoreDialogState extends State<_ScoreDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _score1Ctrl;
-  late final TextEditingController _score2Ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _score1Ctrl = TextEditingController(
-      text: widget.match.myConfirmation?.score1.toString() ?? '',
-    );
-    _score2Ctrl = TextEditingController(
-      text: widget.match.myConfirmation?.score2.toString() ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _score1Ctrl.dispose();
-    _score2Ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Confirm Match Score'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${widget.match.player1.displayName} vs ${widget.match.player2.displayName}',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _score1Ctrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: '${widget.match.player1.displayName} score',
-              ),
-              validator: _scoreValidator,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _score2Ctrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: '${widget.match.player2.displayName} score',
-              ),
-              validator: _scoreValidator,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        SizedBox(
-          width: 150,
-          child: SrrSplitActionButton(
-            label: 'Submit',
-            variant: SrrSplitActionButtonVariant.filled,
-            leadingIcon: Icons.check_rounded,
-            onPressed: () {
-              if (!(_formKey.currentState?.validate() ?? false)) return;
-              Navigator.pop(
-                context,
-                _ScoreSubmission(
-                  score1: int.parse(_score1Ctrl.text.trim()),
-                  score2: int.parse(_score2Ctrl.text.trim()),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  String? _scoreValidator(String? value) {
-    final text = (value ?? '').trim();
-    if (text.isEmpty) return 'Required';
-    final parsed = int.tryParse(text);
-    if (parsed == null) return 'Number required';
-    if (parsed < 0) return 'Score cannot be negative';
-    if (parsed > 999) return 'Score too high';
-    return null;
   }
 }

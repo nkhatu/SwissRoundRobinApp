@@ -20,6 +20,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_ID="${FIREBASE_PROJECT_ID:-your-firebase-project-id}"
 FUNCTIONS_TARGET="${FIREBASE_FUNCTIONS_TARGET:-}"
+APP_VERSION="${APP_VERSION:-}"
+APP_BUILD_NUMBER="${APP_BUILD_NUMBER:-}"
 
 cd "$ROOT_DIR"
 
@@ -32,6 +34,10 @@ fi
 if [[ "$PROJECT_ID" == "your-firebase-project-id" ]]; then
   echo "Set FIREBASE_PROJECT_ID before running deploy_functions.sh."
   exit 1
+fi
+
+if [[ -n "$APP_VERSION" && -n "$APP_BUILD_NUMBER" ]]; then
+  echo "Deploying functions for app release: $APP_VERSION+$APP_BUILD_NUMBER"
 fi
 
 firebase deploy --only "$DEPLOY_ONLY" --project "$PROJECT_ID"

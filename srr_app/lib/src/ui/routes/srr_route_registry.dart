@@ -27,6 +27,7 @@ import '../home/srr_home_page.dart';
 import '../about/srr_privacy_page.dart';
 import '../tournament/srr_ranking_upload_page.dart';
 import '../signin/srr_register_page.dart';
+import '../tournament/srr_match_score_entry_page.dart';
 import '../tournament/srr_round_matchup_page.dart';
 import 'srr_routes.dart';
 import '../helpers/srr_settings_page.dart';
@@ -54,16 +55,17 @@ class SrrRouteRegistry {
   }) {
     return {
       AppRoutes.bootstrap: (_) => SrrBootstrapPage(
-          appState: appState,
-          authService: authService,
-          tournamentRepository: tournamentRepository,
-        ),
+        appState: appState,
+        authService: authService,
+        tournamentRepository: tournamentRepository,
+      ),
       AppRoutes.signIn: (_) => SrrSignInPage(appState: appState),
       AppRoutes.register: (_) => SrrRegisterPage(appState: appState),
       AppRoutes.home: (_) => SrrHomePage(
         appState: appState,
         authService: authService,
         dashboardRepository: dashboardRepository,
+        tournamentRepository: tournamentRepository,
         analytics: framework.analytics,
         displayPreferencesController: displayPreferencesController,
       ),
@@ -119,10 +121,31 @@ class SrrRouteRegistry {
           initialTournamentId: initialTournamentId,
         );
       },
-      SrrRoutes.completeProfile: (_) => SrrCompleteProfilePage(
-        appState: appState,
-        authService: authService,
-      ),
+      SrrRoutes.completeProfile: (_) =>
+          SrrCompleteProfilePage(appState: appState, authService: authService),
+      SrrRoutes.matchScoreEntry: (context) {
+        final args = ModalRoute.of(context)?.settings.arguments;
+        if (args is! SrrMatchScoreEntryPageArguments) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Board Score Entry')),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Select a match from My Score Entry to open the score sheet.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+        return SrrMatchScoreEntryPage(
+          dashboardRepository: dashboardRepository,
+          matchId: args.matchId,
+          tournamentId: args.tournamentId,
+          tournamentName: args.tournamentName,
+        );
+      },
       SrrRoutes.currentNationalRanking: (_) => SrrRankingUploadPage(
         appState: appState,
         authService: authService,

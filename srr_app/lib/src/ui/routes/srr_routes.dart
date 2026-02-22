@@ -20,4 +20,5 @@ class SrrRoutes {
   static const roundMatchup = '/round/matchup';
   static const completeProfile = '/auth/complete-profile';
   static const currentNationalRanking = '/ranking/current';
+  static const matchScoreEntry = '/matches/score-entry';
 }

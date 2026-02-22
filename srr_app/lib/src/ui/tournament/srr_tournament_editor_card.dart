@@ -353,15 +353,8 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildTextField(
-                controller: _controller.chiefRefereeFirstNameController,
-                label: 'Chief referee first name',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildTextField(
-                controller: _controller.chiefRefereeLastNameController,
-                label: 'Chief referee last name',
+                controller: _controller.chiefRefereeFullNameController,
+                label: 'Chief referee full name',
               ),
             ),
           ],
@@ -383,21 +376,14 @@ class _SrrTournamentEditorCardState extends State<SrrTournamentEditorCard> {
                     .map(
                       (entry) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: entry.value.firstNameController,
-                                label: 'Referee ${entry.key + 1} first name',
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildTextField(
-                                controller: entry.value.lastNameController,
-                                label: 'Referee ${entry.key + 1} last name',
-                              ),
-                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: entry.value.nameController,
+                                    label: 'Referee ${entry.key + 1} full name',
+                                  ),
+                                ),
                             IconButton(
                               tooltip: 'Remove referee',
                               onPressed: _controller.isSaving

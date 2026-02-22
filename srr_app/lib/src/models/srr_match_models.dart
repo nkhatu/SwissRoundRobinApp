@@ -11,13 +11,63 @@
 //
 import 'srr_enums.dart';
 
+String _srrAsString(Object? value, {String fallback = ''}) {
+  if (value is String) return value;
+  if (value is num || value is bool) return value.toString();
+  return fallback;
+}
+
+int _srrAsInt(Object? value, {int fallback = 0}) {
+  return switch (value) {
+    int number => number,
+    num number => number.toInt(),
+    String text => int.tryParse(text.trim()) ?? fallback,
+    _ => fallback,
+  };
+}
+
+int? _srrAsNullableInt(Object? value) {
+  if (value == null) return null;
+  return switch (value) {
+    int number => number,
+    num number => number.toInt(),
+    String text => int.tryParse(text.trim()),
+    _ => null,
+  };
+}
+
+bool _srrAsBool(Object? value, {bool fallback = false}) {
+  return switch (value) {
+    bool flag => flag,
+    num number => number != 0,
+    String text => text.trim().toLowerCase() == 'true' || text.trim() == '1',
+    _ => fallback,
+  };
+}
+
+Map<String, dynamic>? _srrAsObjectMapOrNull(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, item) => MapEntry(key.toString(), item));
+  }
+  return null;
+}
+
+List<Map<String, dynamic>> _srrAsObjectMapList(Object? value) {
+  if (value is! List) return const <Map<String, dynamic>>[];
+  return value
+      .map(_srrAsObjectMapOrNull)
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
+}
+
 class SrrScoreConfirmation {
   const SrrScoreConfirmation({required this.score1, required this.score2});
 
   factory SrrScoreConfirmation.fromJson(Map<String, dynamic> json) =>
       SrrScoreConfirmation(
-        score1: json['score1'] as int,
-        score2: json['score2'] as int,
+        score1: _srrAsInt(json['score1']),
+        score2: _srrAsInt(json['score2']),
       );
 
   final int score1;
@@ -33,11 +83,13 @@ class SrrTossState {
   });
 
   factory SrrTossState.fromJson(Map<String, dynamic> json) => SrrTossState(
-    tossWinnerPlayerId: json['toss_winner_player_id'] as int?,
-    tossDecision: srrTossDecisionFromString(json['toss_decision'] as String?),
-    firstStrikerPlayerId: json['first_striker_player_id'] as int?,
+    tossWinnerPlayerId: _srrAsNullableInt(json['toss_winner_player_id']),
+    tossDecision: srrTossDecisionFromString(
+      _srrAsString(json['toss_decision']),
+    ),
+    firstStrikerPlayerId: _srrAsNullableInt(json['first_striker_player_id']),
     firstStrikerColor: srrCarromColorFromString(
-      json['first_striker_color'] as String?,
+      _srrAsString(json['first_striker_color']),
     ),
   );
 
@@ -64,20 +116,20 @@ class SrrCarromBoard {
   });
 
   factory SrrCarromBoard.fromJson(Map<String, dynamic> json) => SrrCarromBoard(
-    boardNumber: json['board_number'] as int,
-    strikerPlayerId: json['striker_player_id'] as int?,
-    strikerColor: srrCarromColorFromString(json['striker_color'] as String?),
-    strikerPocketed: json['striker_pocketed'] as int?,
-    nonStrikerPocketed: json['non_striker_pocketed'] as int?,
+    boardNumber: _srrAsInt(json['board_number']),
+    strikerPlayerId: _srrAsNullableInt(json['striker_player_id']),
+    strikerColor: srrCarromColorFromString(_srrAsString(json['striker_color'])),
+    strikerPocketed: _srrAsNullableInt(json['striker_pocketed']),
+    nonStrikerPocketed: _srrAsNullableInt(json['non_striker_pocketed']),
     queenPocketedBy: srrQueenPocketedByFromString(
-      json['queen_pocketed_by'] as String?,
+      _srrAsString(json['queen_pocketed_by']),
     ),
-    pointsPlayer1: json['points_player1'] as int,
-    pointsPlayer2: json['points_player2'] as int,
-    winnerPlayerId: json['winner_player_id'] as int?,
-    isTiebreaker: json['is_tiebreaker'] as bool? ?? false,
-    isSuddenDeath: json['is_sudden_death'] as bool? ?? false,
-    notes: json['notes'] as String? ?? '',
+    pointsPlayer1: _srrAsInt(json['points_player1']),
+    pointsPlayer2: _srrAsInt(json['points_player2']),
+    winnerPlayerId: _srrAsNullableInt(json['winner_player_id']),
+    isTiebreaker: _srrAsBool(json['is_tiebreaker']),
+    isSuddenDeath: _srrAsBool(json['is_sudden_death']),
+    notes: _srrAsString(json['notes']),
   );
 
   final int boardNumber;
@@ -103,10 +155,10 @@ class SrrSuddenDeath {
   });
 
   factory SrrSuddenDeath.fromJson(Map<String, dynamic> json) => SrrSuddenDeath(
-    winnerPlayerId: json['winner_player_id'] as int,
-    player1Hits: json['player1_hits'] as int,
-    player2Hits: json['player2_hits'] as int,
-    attempts: json['attempts'] as int,
+    winnerPlayerId: _srrAsInt(json['winner_player_id']),
+    player1Hits: _srrAsInt(json['player1_hits']),
+    player2Hits: _srrAsInt(json['player2_hits']),
+    attempts: _srrAsInt(json['attempts']),
   );
 
   final int winnerPlayerId;
@@ -130,16 +182,53 @@ class SrrPlayerLite {
   });
 
   factory SrrPlayerLite.fromJson(Map<String, dynamic> json) => SrrPlayerLite(
-    id: json['id'] as int,
-    handle: json['handle'] as String,
-    displayName: json['display_name'] as String,
-    state: json['state'] as String?,
-    country: json['country'] as String?,
-    emailId: json['email_id'] as String?,
-    registeredFlag: json['registered_flag'] as bool?,
-    tshirtSize: json['t_shirt_size'] as String?,
-    feesPaidFlag: json['fees_paid_flag'] as bool?,
-    phoneNumber: json['phone_number'] as String?,
+    id: _srrAsInt(json['id']),
+    handle: (() {
+      final value = _srrAsString(json['handle']).trim();
+      if (value.isNotEmpty) return value;
+      final email = _srrAsString(json['email_id']).trim();
+      if (email.isNotEmpty) return email;
+      final displayName = _srrAsString(json['display_name']).trim();
+      if (displayName.isNotEmpty) return displayName;
+      return 'player_${_srrAsInt(json['id'])}';
+    })(),
+    displayName: (() {
+      final value = _srrAsString(json['display_name']).trim();
+      if (value.isNotEmpty) return value;
+      final handle = _srrAsString(json['handle']).trim();
+      if (handle.isNotEmpty) return handle;
+      return 'Player ${_srrAsInt(json['id'])}';
+    })(),
+    state: (() {
+      final value = _srrAsString(json['state']).trim();
+      return value.isEmpty ? null : value;
+    })(),
+    country: (() {
+      final value = _srrAsString(json['country']).trim();
+      return value.isEmpty ? null : value;
+    })(),
+    emailId: (() {
+      final value = _srrAsString(json['email_id']).trim();
+      return value.isEmpty ? null : value;
+    })(),
+    registeredFlag: (() {
+      final raw = json['registered_flag'];
+      if (raw == null) return null;
+      return _srrAsBool(raw);
+    })(),
+    tshirtSize: (() {
+      final value = _srrAsString(json['t_shirt_size']).trim();
+      return value.isEmpty ? null : value;
+    })(),
+    feesPaidFlag: (() {
+      final raw = json['fees_paid_flag'];
+      if (raw == null) return null;
+      return _srrAsBool(raw);
+    })(),
+    phoneNumber: (() {
+      final value = _srrAsString(json['phone_number']).trim();
+      return value.isEmpty ? null : value;
+    })(),
   );
 
   final int id;
@@ -157,6 +246,7 @@ class SrrPlayerLite {
 class SrrMatch {
   const SrrMatch({
     required this.id,
+    required this.tournamentId,
     required this.groupNumber,
     required this.roundNumber,
     required this.tableNumber,
@@ -173,34 +263,45 @@ class SrrMatch {
   });
 
   factory SrrMatch.fromJson(Map<String, dynamic> json) => SrrMatch(
-    id: json['id'] as int,
-    groupNumber: (json['group_number'] as num?)?.toInt(),
-    roundNumber: json['round_number'] as int,
-    tableNumber: json['table_number'] as int,
-    player1: SrrPlayerLite.fromJson(json['player1'] as Map<String, dynamic>),
-    player2: SrrPlayerLite.fromJson(json['player2'] as Map<String, dynamic>),
-    status: srrMatchStatusFromString(json['status'] as String),
-    confirmedScore1: json['confirmed_score1'] as int?,
-    confirmedScore2: json['confirmed_score2'] as int?,
-    confirmations: json['confirmations'] as int,
+    id: _srrAsInt(json['id']),
+    tournamentId: _srrAsNullableInt(json['tournament_id']),
+    groupNumber: _srrAsNullableInt(json['group_number']),
+    roundNumber: _srrAsInt(json['round_number']),
+    tableNumber: _srrAsInt(json['table_number']),
+    player1: SrrPlayerLite.fromJson(
+      _srrAsObjectMapOrNull(json['player1']) ?? const <String, dynamic>{},
+    ),
+    player2: SrrPlayerLite.fromJson(
+      _srrAsObjectMapOrNull(json['player2']) ?? const <String, dynamic>{},
+    ),
+    status: srrMatchStatusFromString(_srrAsString(json['status'])),
+    confirmedScore1: _srrAsNullableInt(json['confirmed_score1']),
+    confirmedScore2: _srrAsNullableInt(json['confirmed_score2']),
+    confirmations: _srrAsInt(json['confirmations']),
     myConfirmation: json['my_confirmation'] == null
         ? null
         : SrrScoreConfirmation.fromJson(
-            json['my_confirmation'] as Map<String, dynamic>,
+            _srrAsObjectMapOrNull(json['my_confirmation']) ??
+                const <String, dynamic>{},
           ),
     toss: json['toss'] == null
         ? null
-        : SrrTossState.fromJson(json['toss'] as Map<String, dynamic>),
-    boards: (json['boards'] as List<dynamic>? ?? const <dynamic>[])
-        .cast<Map<String, dynamic>>()
-        .map(SrrCarromBoard.fromJson)
-        .toList(growable: false),
+        : SrrTossState.fromJson(
+            _srrAsObjectMapOrNull(json['toss']) ?? const <String, dynamic>{},
+          ),
+    boards: _srrAsObjectMapList(
+      json['boards'],
+    ).map(SrrCarromBoard.fromJson).toList(growable: false),
     suddenDeath: json['sudden_death'] == null
         ? null
-        : SrrSuddenDeath.fromJson(json['sudden_death'] as Map<String, dynamic>),
+        : SrrSuddenDeath.fromJson(
+            _srrAsObjectMapOrNull(json['sudden_death']) ??
+                const <String, dynamic>{},
+          ),
   );
 
   final int id;
+  final int? tournamentId;
   final int? groupNumber;
   final int roundNumber;
   final int tableNumber;
@@ -240,12 +341,11 @@ class SrrRound {
   });
 
   factory SrrRound.fromJson(Map<String, dynamic> json) => SrrRound(
-    roundNumber: json['round_number'] as int,
-    isComplete: json['is_complete'] as bool,
-    matches: (json['matches'] as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map(SrrMatch.fromJson)
-        .toList(growable: false),
+    roundNumber: _srrAsInt(json['round_number']),
+    isComplete: _srrAsBool(json['is_complete']),
+    matches: _srrAsObjectMapList(
+      json['matches'],
+    ).map(SrrMatch.fromJson).toList(growable: false),
   );
 
   final int roundNumber;
@@ -274,28 +374,38 @@ class SrrStandingRow {
   });
 
   factory SrrStandingRow.fromJson(Map<String, dynamic> json) {
-    final goalsFor = json['goals_for'] as int? ?? 0;
-    final goalsAgainst = json['goals_against'] as int? ?? 0;
-    final goalDifference = json['goal_difference'] as int? ?? 0;
+    final goalsFor = _srrAsInt(json['goals_for']);
+    final goalsAgainst = _srrAsInt(json['goals_against']);
+    final goalDifference = _srrAsInt(json['goal_difference']);
     return SrrStandingRow(
-      position: json['position'] as int,
-      playerId: json['player_id'] as int,
-      handle: json['handle'] as String,
-      displayName: json['display_name'] as String,
-      played: json['played'] as int,
-      wins: json['wins'] as int,
-      draws: json['draws'] as int,
-      losses: json['losses'] as int,
+      position: _srrAsInt(json['position']),
+      playerId: _srrAsInt(json['player_id']),
+      handle: _srrAsString(json['handle']),
+      displayName: (() {
+        final displayName = _srrAsString(json['display_name']).trim();
+        if (displayName.isNotEmpty) return displayName;
+        final handle = _srrAsString(json['handle']).trim();
+        if (handle.isNotEmpty) return handle;
+        return 'Player ${_srrAsInt(json['player_id'])}';
+      })(),
+      played: _srrAsInt(json['played']),
+      wins: _srrAsInt(json['wins']),
+      draws: _srrAsInt(json['draws']),
+      losses: _srrAsInt(json['losses']),
       goalsFor: goalsFor,
       goalsAgainst: goalsAgainst,
       goalDifference: goalDifference,
-      sumRoundPoints: (json['sum_round_points'] as int?) ?? goalsFor,
-      sumOpponentRoundPoints:
-          (json['sum_opponent_round_points'] as int?) ?? goalsAgainst,
-      netGamePointsDifference:
-          (json['net_game_points_difference'] as int?) ?? goalDifference,
-      roundPoints: json['round_points'] as int,
-      points: json['points'] as int,
+      sumRoundPoints: _srrAsInt(json['sum_round_points'], fallback: goalsFor),
+      sumOpponentRoundPoints: _srrAsInt(
+        json['sum_opponent_round_points'],
+        fallback: goalsAgainst,
+      ),
+      netGamePointsDifference: _srrAsInt(
+        json['net_game_points_difference'],
+        fallback: goalDifference,
+      ),
+      roundPoints: _srrAsInt(json['round_points']),
+      points: _srrAsInt(json['points']),
     );
   }
 
@@ -326,9 +436,13 @@ class SrrPlayerRoundPoints {
 
   factory SrrPlayerRoundPoints.fromJson(Map<String, dynamic> json) =>
       SrrPlayerRoundPoints(
-        playerId: json['player_id'] as int,
-        displayName: json['display_name'] as String,
-        points: json['points'] as int,
+        playerId: _srrAsInt(json['player_id']),
+        displayName: (() {
+          final value = _srrAsString(json['display_name']).trim();
+          if (value.isNotEmpty) return value;
+          return 'Player ${_srrAsInt(json['player_id'])}';
+        })(),
+        points: _srrAsInt(json['points']),
       );
 
   final int playerId;
@@ -340,11 +454,10 @@ class SrrRoundPoints {
   const SrrRoundPoints({required this.roundNumber, required this.points});
 
   factory SrrRoundPoints.fromJson(Map<String, dynamic> json) => SrrRoundPoints(
-    roundNumber: json['round_number'] as int,
-    points: (json['points'] as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map(SrrPlayerRoundPoints.fromJson)
-        .toList(growable: false),
+    roundNumber: _srrAsInt(json['round_number']),
+    points: _srrAsObjectMapList(
+      json['points'],
+    ).map(SrrPlayerRoundPoints.fromJson).toList(growable: false),
   );
 
   final int roundNumber;
@@ -360,12 +473,11 @@ class SrrRoundStandings {
 
   factory SrrRoundStandings.fromJson(Map<String, dynamic> json) =>
       SrrRoundStandings(
-        roundNumber: json['round_number'] as int,
-        isComplete: json['is_complete'] as bool,
-        standings: (json['standings'] as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map(SrrStandingRow.fromJson)
-            .toList(growable: false),
+        roundNumber: _srrAsInt(json['round_number']),
+        isComplete: _srrAsBool(json['is_complete']),
+        standings: _srrAsObjectMapList(
+          json['standings'],
+        ).map(SrrStandingRow.fromJson).toList(growable: false),
       );
 
   final int roundNumber;
@@ -383,16 +495,16 @@ class SrrLiveSnapshot {
 
   factory SrrLiveSnapshot.fromJson(Map<String, dynamic> json) =>
       SrrLiveSnapshot(
-        generatedAt: DateTime.parse(json['generated_at'] as String),
-        currentRound: json['current_round'] as int?,
-        rounds: (json['rounds'] as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map(SrrRound.fromJson)
-            .toList(growable: false),
-        standings: (json['standings'] as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map(SrrStandingRow.fromJson)
-            .toList(growable: false),
+        generatedAt:
+            DateTime.tryParse(_srrAsString(json['generated_at'])) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        currentRound: _srrAsNullableInt(json['current_round']),
+        rounds: _srrAsObjectMapList(
+          json['rounds'],
+        ).map(SrrRound.fromJson).toList(growable: false),
+        standings: _srrAsObjectMapList(
+          json['standings'],
+        ).map(SrrStandingRow.fromJson).toList(growable: false),
       );
 
   final DateTime generatedAt;

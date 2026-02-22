@@ -24,6 +24,7 @@ import {
 } from './enums';
 
 export interface PersonNameModel {
+  fullName?: string;
   firstName: string;
   lastName: string;
 }

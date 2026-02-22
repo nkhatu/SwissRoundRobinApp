@@ -26,6 +26,8 @@ ANDROID_DEVICE_ID="${ANDROID_DEVICE_ID:-}"
 SRR_API_URL="${SRR_API_URL:-https://example.com/api}"
 SRR_SUPPORT_EMAIL="${SRR_SUPPORT_EMAIL:-support@example.com}"
 SRR_PUBLIC_DOMAIN="${SRR_PUBLIC_DOMAIN:-example.com}"
+APP_VERSION="${APP_VERSION:-}"
+APP_BUILD_NUMBER="${APP_BUILD_NUMBER:-}"
 
 GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}"
 GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
@@ -39,6 +41,15 @@ case "$ANDROID_BUILD_MODE" in
     exit 1
     ;;
 esac
+
+if [[ -n "$APP_VERSION" && ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid APP_VERSION: $APP_VERSION (expected x.y.z)"
+  exit 1
+fi
+if [[ -n "$APP_BUILD_NUMBER" && ! "$APP_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "Invalid APP_BUILD_NUMBER: $APP_BUILD_NUMBER (expected integer)"
+  exit 1
+fi
 
 if [[ "$SRR_SUPPORT_EMAIL" == "support@example.com" ]] ||
    [[ "$SRR_PUBLIC_DOMAIN" == "example.com" ]]; then
@@ -56,6 +67,13 @@ build_args=(
   "--dart-define=SRR_PUBLIC_DOMAIN=$SRR_PUBLIC_DOMAIN"
 )
 
+if [[ -n "$APP_VERSION" ]]; then
+  build_args+=("--build-name=$APP_VERSION")
+fi
+if [[ -n "$APP_BUILD_NUMBER" ]]; then
+  build_args+=("--build-number=$APP_BUILD_NUMBER")
+fi
+
 if [[ -n "$GOOGLE_WEB_CLIENT_ID" ]]; then
   build_args+=("--dart-define=GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
 fi
@@ -70,6 +88,10 @@ if [[ -n "$APPLE_REDIRECT_URI" ]]; then
 fi
 
 flutter build apk "${build_args[@]}"
+
+if [[ -n "$APP_VERSION" || -n "$APP_BUILD_NUMBER" ]]; then
+  echo "Built Android release version: ${APP_VERSION:-from-pubspec}+${APP_BUILD_NUMBER:-from-pubspec}"
+fi
 
 case "$ANDROID_BUILD_MODE" in
   debug) APK_PATH="$APP_DIR/build/app/outputs/flutter-apk/app-debug.apk" ;;

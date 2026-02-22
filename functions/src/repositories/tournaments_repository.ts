@@ -107,17 +107,40 @@ function normalizeWorkflowStepStatus(
   return null;
 }
 
+function splitFullName(value: string): {firstName: string; lastName: string} {
+  const normalized = value
+    .trim()
+    .split(/\s+/)
+    .filter((entry) => entry.length > 0);
+  if (normalized.length === 0) return {firstName: '', lastName: ''};
+  if (normalized.length === 1) {
+    return {firstName: normalized[0], lastName: '.'};
+  }
+  return {
+    firstName: normalized[0],
+    lastName: normalized.slice(1).join(' '),
+  };
+}
+
 function toPersonName(value: unknown): PersonNameModel | null {
   if (value == null || typeof value !== 'object') return null;
   const payload = value as Record<string, unknown>;
-  const firstName = asText(
+  let firstName = asText(
     payload.first_name ?? payload.firstName ?? payload.fname,
   ).trim();
-  const lastName = asText(
+  let lastName = asText(
     payload.last_name ?? payload.lastName ?? payload.lname,
   ).trim();
+  const fullName = asText(
+    payload.full_name ?? payload.fullName ?? payload.name,
+  ).trim();
+  if ((!firstName || !lastName) && fullName) {
+    const split = splitFullName(fullName);
+    firstName = firstName || split.firstName;
+    lastName = lastName || split.lastName;
+  }
   if (!firstName || !lastName) return null;
-  return {firstName, lastName};
+  return {firstName, lastName, fullName: `${firstName} ${lastName}`.trim()};
 }
 
 function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
@@ -127,8 +150,12 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
   const fallbackEnd = new Date(
     Date.parse(fallbackStart) + 2 * 60 * 60 * 1000,
   ).toISOString();
-  const normalizedType = asText(payload.type).trim().toLowerCase();
-  const normalizedFlag = asText(payload.flag).trim().toLowerCase();
+  const normalizedType = asText(
+    payload.type ?? payload.tournament_type,
+  ).trim().toLowerCase();
+  const normalizedFlag = asText(
+    payload.flag ?? payload.tournament_flag,
+  ).trim().toLowerCase();
   const typeRaw =
     normalizedType === 'reginaol'
       ? 'regional'
@@ -137,13 +164,13 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
       : null;
 
   const type =
-    asEnum<TournamentType>(typeRaw ?? payload.type, [
+    asEnum<TournamentType>(typeRaw ?? payload.type ?? payload.tournament_type, [
       'national',
       'open',
       'regional',
       'club',
     ]) ??
-    asEnum<TournamentType>(typeRaw ?? payload.flag, [
+    asEnum<TournamentType>(typeRaw ?? payload.flag ?? payload.tournament_flag, [
       'national',
       'open',
       'regional',
@@ -154,17 +181,25 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
       payload.sub_type ?? payload.subType ?? payload.tournament_sub_type,
       ['singles', 'doubles'],
     ) ??
-    asEnum<TournamentSubType>(payload.type, ['singles', 'doubles']);
-  const category = asEnum<TournamentCategory>(payload.category, ['men', 'women']);
+    asEnum<TournamentSubType>(
+      payload.type ?? payload.tournament_type,
+      ['singles', 'doubles'],
+    );
+  const category = asEnum<TournamentCategory>(
+    payload.category ?? payload.tournament_category,
+    ['men', 'women'],
+  );
   const subCategory = asEnum<TournamentSubCategory>(
-    payload.sub_category ?? payload.subCategory,
+    payload.sub_category ?? payload.subCategory ?? payload.tournament_sub_category,
     ['junior', 'senior'],
   );
   const chiefReferee = toPersonName(
-    payload.chief_referee ?? payload.chiefReferee,
+    payload.chief_referee ??
+      payload.chiefReferee ??
+      payload.tournament_chief_referee,
   );
 
-  const refereesRaw = payload.referees;
+  const refereesRaw = payload.referees ?? payload.tournament_referees;
   const referees = Array.isArray(refereesRaw)
     ? refereesRaw
         .map((entry) => toPersonName(entry))
@@ -181,9 +216,13 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
     return null;
   }
 
-  const venueName = asText(payload.venue_name ?? payload.venueName).trim();
+  const venueName = asText(
+    payload.venue_name ?? payload.venueName ?? payload.tournament_venue_name,
+  ).trim();
   const directorName = asText(
-    payload.director_name ?? payload.directorName,
+    payload.director_name ??
+      payload.directorName ??
+      payload.tournament_director_name,
   ).trim();
   if (!venueName || !directorName) return null;
 
@@ -199,7 +238,8 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
   const srrRoundsRaw =
     payload.srr_rounds ??
     payload.srrRounds ??
-    payload.tournament_srr_rounds;
+    payload.tournament_srr_rounds ??
+    payload.number_of_srr_rounds;
   const srrRounds = srrRoundsRaw == null ? 7 : asInt(srrRoundsRaw);
   const numberOfGroupsRaw =
     payload.number_of_groups ??
@@ -209,12 +249,24 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
     ? 4
     : asInt(numberOfGroupsRaw);
   const singlesMaxParticipants = asInt(
-    payload.singles_max_participants ?? payload.singlesMaxParticipants,
+    payload.singles_max_participants ??
+      payload.singlesMaxParticipants ??
+      payload.tournament_limits_singles_max_participants,
   );
-  const doublesMaxTeams = asInt(payload.doubles_max_teams ?? payload.doublesMaxTeams);
-  const numberOfTables = asInt(payload.number_of_tables ?? payload.numberOfTables);
+  const doublesMaxTeams = asInt(
+    payload.doubles_max_teams ??
+      payload.doublesMaxTeams ??
+      payload.tournament_limits_doubles_max_teams,
+  );
+  const numberOfTables = asInt(
+    payload.number_of_tables ??
+      payload.numberOfTables ??
+      payload.tournament_number_of_tables,
+  );
   const roundTimeLimitMinutes = asInt(
-    payload.round_time_limit_minutes ?? payload.roundTimeLimitMinutes,
+    payload.round_time_limit_minutes ??
+      payload.roundTimeLimitMinutes ??
+      payload.tournament_round_time_limit_minutes,
   );
   if (
     singlesMaxParticipants < 2 ||
@@ -249,7 +301,9 @@ function toTournamentMetadata(value: unknown): TournamentMetadataModel | null {
 }
 
 function toFirestorePersonName(name: PersonNameModel): Record<string, string> {
+  const fullName = `${name.firstName} ${name.lastName}`.trim();
   return {
+    full_name: fullName,
     first_name: name.firstName,
     last_name: name.lastName,
   };

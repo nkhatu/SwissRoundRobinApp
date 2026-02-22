@@ -36,10 +36,9 @@ class TournamentFormController extends ChangeNotifier {
   final TextEditingController numberOfGroupsController = TextEditingController();
   final TextEditingController venueController = TextEditingController();
   final TextEditingController directorController = TextEditingController();
-  final TextEditingController chiefRefereeFirstNameController = TextEditingController();
-  final TextEditingController chiefRefereeLastNameController = TextEditingController();
+  final TextEditingController chiefRefereeFullNameController = TextEditingController();
 
-  late final List<_RefereeNameRow> refereeRows = <_RefereeNameRow>[];
+  late final List<SrrRefereeNameRow> refereeRows = <SrrRefereeNameRow>[];
   late DateTime startDateTime;
   late DateTime endDateTime;
 
@@ -81,7 +80,7 @@ class TournamentFormController extends ChangeNotifier {
   }
 
   void addReferee() {
-    refereeRows.add(_RefereeNameRow());
+    refereeRows.add(SrrRefereeNameRow());
     notifyListeners();
   }
 
@@ -161,8 +160,7 @@ class TournamentFormController extends ChangeNotifier {
         ...referees,
       ],
       chiefReferee: SrrPersonName(
-        firstName: chiefRefereeFirstNameController.text.trim(),
-        lastName: chiefRefereeLastNameController.text.trim(),
+        fullName: chiefRefereeFullNameController.text.trim(),
       ),
       category: tournamentCategory,
       subCategory: tournamentSubCategory,
@@ -187,21 +185,17 @@ class TournamentFormController extends ChangeNotifier {
     numberOfGroupsController.text = '${metadata?.numberOfGroups ?? 4}';
     venueController.text = metadata?.venueName ?? '';
     directorController.text = metadata?.directorName ?? '';
-    chiefRefereeFirstNameController.text = metadata?.chiefReferee.firstName ?? '';
-    chiefRefereeLastNameController.text = metadata?.chiefReferee.lastName ?? '';
+    chiefRefereeFullNameController.text = metadata?.chiefReferee.fullName ?? '';
     startDateTime = metadata?.startDateTime.toLocal() ?? DateTime.now();
     endDateTime = metadata?.endDateTime.toLocal() ?? startDateTime.add(const Duration(hours: 2));
     refereeRows.clear();
     if (metadata?.referees != null && metadata!.referees.isNotEmpty) {
       for (final referee in metadata.referees) {
-        refereeRows.add(_RefereeNameRow(
-          firstName: referee.firstName,
-          lastName: referee.lastName,
-        ));
+        refereeRows.add(SrrRefereeNameRow(fullName: referee.fullName));
       }
     }
     if (refereeRows.isEmpty) {
-      refereeRows.add(_RefereeNameRow());
+      refereeRows.add(SrrRefereeNameRow());
     }
   }
 
@@ -229,8 +223,7 @@ class TournamentFormController extends ChangeNotifier {
     numberOfGroupsController.dispose();
     venueController.dispose();
     directorController.dispose();
-    chiefRefereeFirstNameController.dispose();
-    chiefRefereeLastNameController.dispose();
+    chiefRefereeFullNameController.dispose();
     for (final referee in refereeRows) {
       referee.dispose();
     }
@@ -238,27 +231,19 @@ class TournamentFormController extends ChangeNotifier {
   }
 }
 
-class _RefereeNameRow {
-  _RefereeNameRow({String? firstName, String? lastName})
-    : firstNameController = TextEditingController(text: firstName ?? ''),
-      lastNameController = TextEditingController(text: lastName ?? '');
+class SrrRefereeNameRow {
+  SrrRefereeNameRow({String? fullName})
+      : nameController = TextEditingController(text: fullName ?? '');
 
-  final TextEditingController firstNameController;
-  final TextEditingController lastNameController;
+  final TextEditingController nameController;
 
   void dispose() {
-    firstNameController.dispose();
-    lastNameController.dispose();
+    nameController.dispose();
   }
 
   SrrPersonName? toPersonNameOrNull() {
-    final firstName = firstNameController.text.trim();
-    final lastName = lastNameController.text.trim();
-    if (firstName.isEmpty && lastName.isEmpty) return null;
-    if (firstName.isEmpty || lastName.isEmpty) {
-      throw const FormatException('Each referee row must include both first and last name.');
-    }
-    return SrrPersonName(firstName: firstName, lastName: lastName);
+    final name = nameController.text.trim();
+    if (name.isEmpty) return null;
+    return SrrPersonName(fullName: name);
   }
 }
-

@@ -183,6 +183,6 @@ export class UsersRepository {
 
   async listPlayers(): Promise<UserModel[]> {
     const users = await this.list();
-    return users.filter((user) => user.role === 'player');
+    return users.filter((user) => user.role === 'player' || user.role === 'admin');
   }
 }

@@ -95,7 +95,7 @@ export class PlayersRepository {
       phoneNumber?: string;
     },
   ): Promise<PlayerModel | null> {
-    if (user.role !== 'player') return null;
+    if (user.role === 'viewer') return null;
 
     const docRef = this.db.collection(PLAYERS_COLLECTION).doc(String(user.id));
     const snapshot = await docRef.get();

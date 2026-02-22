@@ -274,6 +274,7 @@ interface TournamentSetupPlayerInput {
 }
 
 interface PersonNameDto {
+  full_name: string;
   first_name: string;
   last_name: string;
 }
@@ -487,20 +488,43 @@ interface ParsedCarromSubmission {
   digest: string;
 }
 
+function splitFullName(value: string): {firstName: string; lastName: string} {
+  const normalized = value
+    .trim()
+    .split(/\s+/)
+    .filter((entry) => entry.length > 0);
+  if (normalized.length === 0) return {firstName: '', lastName: ''};
+  if (normalized.length === 1) {
+    return {firstName: normalized[0], lastName: '.'};
+  }
+  return {
+    firstName: normalized[0],
+    lastName: normalized.slice(1).join(' '),
+  };
+}
+
 function parsePersonNameInput(value: unknown, fieldName: string): PersonNameModel {
   if (typeof value !== 'object' || value == null) {
     throw new HttpError(422, `${fieldName} must be an object.`);
   }
   const payload = value as Record<string, unknown>;
-  const firstName = toText(
+  let firstName = toText(
     payload.first_name ?? payload.firstName ?? payload.fname,
   ).trim();
-  const lastName = toText(
+  let lastName = toText(
     payload.last_name ?? payload.lastName ?? payload.lname,
   ).trim();
+  const fullName = toText(
+    payload.full_name ?? payload.fullName ?? payload.name,
+  ).trim();
+  if ((!firstName || !lastName) && fullName) {
+    const split = splitFullName(fullName);
+    firstName = firstName || split.firstName;
+    lastName = lastName || split.lastName;
+  }
   assertLength(firstName, `${fieldName}.first_name`, 1, 80);
   assertLength(lastName, `${fieldName}.last_name`, 1, 80);
-  return {firstName, lastName};
+  return {firstName, lastName, fullName: `${firstName} ${lastName}`.trim()};
 }
 
 function parseTournamentSetupMetadata(
@@ -770,7 +794,9 @@ function defaultTournamentMetadataInput(): TournamentSetupMetadataInput {
 }
 
 function personNameToDto(name: PersonNameModel): PersonNameDto {
+  const fullName = `${name.firstName} ${name.lastName}`.trim();
   return {
+    full_name: fullName,
     first_name: name.firstName,
     last_name: name.lastName,
   };
@@ -1491,6 +1517,10 @@ function _toUserRecord(snapshot: FirebaseFirestore.DocumentSnapshot): UserRecord
     role,
     created_at: toText(data.created_at),
   };
+}
+
+function isPlayerCapableRole(role: Role): boolean {
+  return role === 'player' || role === 'admin';
 }
 
 function normalizeStoredMatchPlayerId(
@@ -3077,31 +3107,23 @@ async function resolveTournamentUploadPlayer(params: {
   const maybeRefreshExistingPlayer = async (
     existing: UserRecord,
   ): Promise<UserRecord> => {
-    if (existing.role !== 'player') {
-      throw new HttpError(
-        422,
-        `User "${existing.handle}" already exists but is not a player account.`,
-      );
-    }
-
-    if (uploadDisplayName.length > 0 && uploadDisplayName !== existing.display_name) {
-      const names = splitNameParts(uploadDisplayName);
-      const userRef = db.collection(COLLECTIONS.users).doc(String(existing.id));
-      await userRef.set(
-        {
-          display_name: uploadDisplayName,
-          first_name: names.firstName || null,
-          last_name: names.lastName || null,
-          role: 'player',
-        },
-        {merge: true},
-      );
-      const updated = await fetchUserById(existing.id);
-      if (updated != null) {
-        return updated;
-      }
-    }
-    return existing;
+    const names =
+      uploadDisplayName.length > 0
+        ? splitNameParts(uploadDisplayName)
+        : splitNameParts(existing.display_name);
+    const roleToPersist: Role = existing.role === 'admin' ? 'admin' : 'player';
+    const userRef = db.collection(COLLECTIONS.users).doc(String(existing.id));
+    await userRef.set(
+      {
+        display_name: uploadDisplayName.length > 0 ? uploadDisplayName : existing.display_name,
+        first_name: names.firstName || null,
+        last_name: names.lastName || null,
+        role: roleToPersist,
+      },
+      {merge: true},
+    );
+    const updated = await fetchUserById(existing.id);
+    return updated ?? existing;
   };
 
   const normalizedEmail =
@@ -3167,12 +3189,12 @@ async function setupTournamentFromPlayers(params: {
   const tournamentPlayers: TournamentPlayerDto[] = [];
   for (let i = 0; i < params.players.length; i += 1) {
     const inputPlayer = params.players[i];
-    const created = await createPlayerForTournamentSetup({
+    const resolved = await resolveTournamentUploadPlayer({
       input: inputPlayer,
       fallbackIndex: i,
       defaultPassword: params.defaultPassword,
     });
-    await syncPlayerModelFromUser(created.user, {
+    await syncPlayerModelFromUser(resolved.user, {
       playerName: inputPlayer.displayName,
       state: inputPlayer.state,
       country: inputPlayer.country,
@@ -3183,7 +3205,7 @@ async function setupTournamentFromPlayers(params: {
       phoneNumber: inputPlayer.phoneNumber,
     });
     tournamentPlayers.push({
-      ...tournamentPlayerDtoFromUser(created.user),
+      ...tournamentPlayerDtoFromUser(resolved.user),
       state: inputPlayer.state,
       country: inputPlayer.country,
       email_id: inputPlayer.emailId,
@@ -3192,12 +3214,14 @@ async function setupTournamentFromPlayers(params: {
       fees_paid_flag: inputPlayer.feesPaidFlag,
       phone_number: inputPlayer.phoneNumber,
     });
-    createdPlayers.push({
-      player_id: created.user.id,
-      display_name: created.user.display_name,
-      handle: created.user.handle,
-      password: created.password,
-    });
+    if (resolved.passwordAssigned != null) {
+      createdPlayers.push({
+        player_id: resolved.user.id,
+        display_name: resolved.user.display_name,
+        handle: resolved.user.handle,
+        password: resolved.passwordAssigned,
+      });
+    }
   }
 
   await upsertTournamentPlayerLinks(tournament.id, tournamentPlayers);
@@ -3548,7 +3572,7 @@ async function syncDomainReadModels(
   ]);
 
   for (const user of users) {
-    if (user.role !== 'player') continue;
+    if (!isPlayerCapableRole(user.role)) continue;
     await syncPlayerModelFromUser(user);
   }
 
@@ -3651,7 +3675,9 @@ async function seedDemoData(
   if (!existingUsers.empty) {
     const playersCount = existingUsers.docs.filter((doc) => {
       const role = toText((doc.data() ?? {}).role);
-      return role === 'player';
+      return isPlayerCapableRole(
+        role === 'admin' || role === 'viewer' ? role : 'player',
+      );
     }).length;
     const matchesCount = (await db.collection(COLLECTIONS.matches).get()).size;
     await syncDomainReadModels(utcNow());
@@ -3765,7 +3791,7 @@ function buildStandings(
   >();
 
   for (const player of players) {
-    if (player.role !== 'player') continue;
+    if (!isPlayerCapableRole(player.role)) continue;
     stats.set(player.id, {
       player_id: player.id,
       handle: player.handle,
@@ -3965,11 +3991,13 @@ async function fetchStandingsPlayers(
   ]);
 
   if (tournamentPlayers.length === 0) {
-    return users.filter((user) => user.role === 'player');
+    return users.filter((user) => isPlayerCapableRole(user.role));
   }
 
   const allowedIds = new Set<number>(tournamentPlayers.map((entry) => entry.id));
-  return users.filter((user) => user.role === 'player' && allowedIds.has(user.id));
+  return users.filter(
+    (user) => isPlayerCapableRole(user.role) && allowedIds.has(user.id),
+  );
 }
 
 async function fetchStandings(
@@ -5591,9 +5619,8 @@ router.post('/matches/:match_id/confirm', route(async (req, res) => {
   const matchId = parsePositiveInt(req.params.match_id, 'match_id');
 
   const user = await requireUser(req);
-  if (user.role !== 'player') {
-    throw new HttpError(403, 'Only players can confirm scores.');
-  }
+  const isAdmin = user.role === 'admin';
+  let adminOverride = false;
 
   const matchRef = db.collection(COLLECTIONS.matches).doc(String(matchId));
   await db.runTransaction(async (tx) => {
@@ -5603,12 +5630,14 @@ router.post('/matches/:match_id/confirm', route(async (req, res) => {
       throw new HttpError(404, 'Match not found.');
     }
 
-    if (user.id !== match.player1_id && user.id !== match.player2_id) {
-      throw new HttpError(403, 'You are not assigned to this match.');
-    }
+    if (!isAdmin) {
+      if (user.id !== match.player1_id && user.id !== match.player2_id) {
+        throw new HttpError(403, 'You are not assigned to this match.');
+      }
 
-    if (match.confirmed_score1 != null && match.confirmed_score2 != null) {
-      throw new HttpError(409, 'Scores are already confirmed for this match.');
+      if (match.confirmed_score1 != null && match.confirmed_score2 != null) {
+        throw new HttpError(409, 'Scores are already confirmed for this match.');
+      }
     }
 
     const carromSubmission = parseCarromSubmission(
@@ -5643,14 +5672,26 @@ router.post('/matches/:match_id/confirm', route(async (req, res) => {
       score2 = explicitScore2;
     }
 
+    const now = utcNow();
+    if (isAdmin) {
+      tx.update(matchRef, {
+        confirmed_score1: score1,
+        confirmed_score2: score2,
+        confirmed_at: now,
+        toss: carromSubmission?.toss ?? null,
+        boards: carromSubmission?.boards ?? [],
+        sudden_death: carromSubmission?.sudden_death ?? null,
+      });
+      adminOverride = true;
+      return;
+    }
+
     const confirmationRef = db
       .collection(COLLECTIONS.scoreConfirmations)
       .doc(`${matchId}_${user.id}`);
     const existingConfirmation = await tx.get(confirmationRef);
-    const now = utcNow();
     const createdAt =
       toText((existingConfirmation.data() ?? {}).created_at) || now;
-
     tx.set(confirmationRef, {
       match_id: matchId,
       player_id: user.id,
@@ -5667,7 +5708,9 @@ router.post('/matches/:match_id/confirm', route(async (req, res) => {
     });
   });
 
-  await confirmScoresIfConsensus(matchId);
+  if (!adminOverride) {
+    await confirmScoresIfConsensus(matchId);
+  }
   const confirmedMatch = await fetchMatchById(matchId);
   await syncDomainReadModels(utcNow(), confirmedMatch?.tournament_id ?? undefined);
   const refreshed = await fetchMatchDto(matchId, user.id);

@@ -19,6 +19,7 @@ import '../../models/srr_models.dart';
 import '../../repositories/srr_player_repository.dart';
 import '../../repositories/srr_tournament_repository.dart';
 import '../../services/player_upload_parser.dart';
+import '../../services/srr_country_iso.dart';
 import '../../services/srr_tournament_labels.dart';
 import '../../theme/srr_display_preferences_controller.dart';
 import 'srr_generic_upload_card.dart';
@@ -85,6 +86,14 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
   int get _invalidUploadedPlayersCount =>
       _uploadedPlayers.where((row) => !row.isValid).length;
 
+  String _countryWithFlag(String country) {
+    final normalized = country.trim();
+    if (normalized.isEmpty) return '';
+    final flag = srrCountryFlagEmoji(normalized);
+    if (flag.isEmpty) return normalized;
+    return '$flag $normalized';
+  }
+
   List<SrrUploadPreviewRow> get _combinedPreviewRows {
     final uploadedRows = _uploadedPlayers
         .asMap()
@@ -98,7 +107,7 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
             values: [
               row.displayName,
               row.state,
-              row.country,
+              _countryWithFlag(row.country),
               row.emailId,
               row.registeredFlag ? 'Yes' : 'No',
               row.tshirtSize,
@@ -117,7 +126,7 @@ class _SrrPlayerUploadPageState extends State<SrrPlayerUploadPage> {
             values: [
               player.displayName,
               player.state ?? '',
-              player.country ?? '',
+              _countryWithFlag(player.country ?? ''),
               player.emailId ?? '',
               (player.registeredFlag ?? false) ? 'Yes' : 'No',
               player.tshirtSize?.trim().isNotEmpty == true

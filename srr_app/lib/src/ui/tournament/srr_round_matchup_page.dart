@@ -22,6 +22,7 @@ import '../../services/srr_tournament_labels.dart';
 import '../helpers/srr_page_scaffold.dart';
 import '../routes/srr_routes.dart';
 import '../helpers/srr_split_action_button.dart';
+import 'srr_match_score_entry_page.dart';
 
 class SrrRoundMatchupPageArguments {
   const SrrRoundMatchupPageArguments({this.tournamentId});
@@ -510,6 +511,23 @@ class _SrrRoundMatchupPageState extends State<SrrRoundMatchupPage> {
         _error = error.toString();
       });
     }
+  }
+
+  Future<void> _openBoardEntryForMatch(SrrMatch match) async {
+    final tournamentId = _selectedTournamentId ?? match.tournamentId;
+    final selectedTournament = _selectedTournament;
+    await Navigator.pushNamed(
+      context,
+      SrrRoutes.matchScoreEntry,
+      arguments: SrrMatchScoreEntryPageArguments(
+        matchId: match.id,
+        tournamentId: tournamentId,
+        tournamentName: selectedTournament == null
+            ? null
+            : srrTournamentDropdownLabel(selectedTournament),
+      ),
+    );
+    await _loadContext(preferredTournamentId: _selectedTournamentId);
   }
 
   Widget _buildMethodToggle() {
@@ -1097,14 +1115,38 @@ class _SrrRoundMatchupPageState extends State<SrrRoundMatchupPage> {
                                     _buildMatchupTableValueCell(
                                       width: _venueColumnWidth,
                                       isLast: true,
-                                      child: Text(
-                                        'Table ${match.tableNumber}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                            'Table ${match.tableNumber}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          SizedBox(
+                                            width: 140,
+                                            child: SrrSplitActionButton(
+                                              label: 'Edit Boards',
+                                              variant:
+                                                  SrrSplitActionButtonVariant
+                                                      .outlined,
+                                              leadingIcon:
+                                                  Icons.table_chart_outlined,
+                                              onPressed: _busy
+                                                  ? null
+                                                  : () =>
+                                                        _openBoardEntryForMatch(
+                                                          match,
+                                                        ),
                                             ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
