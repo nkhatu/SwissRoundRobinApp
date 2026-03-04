@@ -14,7 +14,11 @@ import {getFirestore} from 'firebase-admin/firestore';
 
 initializeApp();
 
-export const db = getFirestore();
+const firestoreDatabaseId =
+  process.env.FIRESTORE_DATABASE_ID?.trim() || '(default)';
+
+export const FIRESTORE_DATABASE_ID = firestoreDatabaseId;
+export const db = getFirestore(firestoreDatabaseId);
 
 export const countersRef = db.doc('meta/counters');
 

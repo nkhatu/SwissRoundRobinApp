@@ -14,6 +14,7 @@
 // Copyright (c) The Khatu Family Trust
 //
 import admin from 'firebase-admin';
+import {getFirestore} from 'firebase-admin/firestore';
 
 const FIREBASE_COLLECTIONS = {
   users: 'users',
@@ -39,6 +40,11 @@ function ensureInitialized() {
   if (!admin.apps.length) {
     admin.initializeApp();
   }
+}
+
+function resolveFirestoreDatabaseId() {
+  const value = process.env.FIRESTORE_DATABASE_ID?.trim();
+  return value && value.length > 0 ? value : '(default)';
 }
 
 async function fetchLinkedUserIds(db) {
@@ -75,7 +81,10 @@ async function pruneCollection({db, collection, userIdField, linkedIds}) {
 
 async function main() {
   ensureInitialized();
-  const db = admin.firestore();
+  const databaseId = resolveFirestoreDatabaseId();
+  const app = admin.app();
+  const db = getFirestore(app, databaseId);
+  console.log(`Using Firestore database: ${databaseId}`);
   const linkedIds = await fetchLinkedUserIds(db);
   if (linkedIds.size === 0) {
     console.log('No firebase identity records found. Skipping cleanup.');

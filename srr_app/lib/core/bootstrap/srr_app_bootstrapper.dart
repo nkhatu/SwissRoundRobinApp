@@ -12,17 +12,24 @@
 //
 import '../../src/config/srr_runtime_env.dart';
 import '../../src/di/srr_dependencies.dart';
+import 'srr_firestore_initializer.dart';
 import 'srr_firebase_initializer.dart';
 
 class SrrAppBootstrapper {
-  const SrrAppBootstrapper({SrrFirebaseInitializer? firebaseInitializer})
-    : _firebaseInitializer =
-          firebaseInitializer ?? const SrrFirebaseInitializer();
+  const SrrAppBootstrapper({
+    SrrFirebaseInitializer? firebaseInitializer,
+    SrrFirestoreInitializer? firestoreInitializer,
+  }) : _firebaseInitializer =
+           firebaseInitializer ?? const SrrFirebaseInitializer(),
+       _firestoreInitializer =
+           firestoreInitializer ?? const SrrFirestoreInitializer();
 
   final SrrFirebaseInitializer _firebaseInitializer;
+  final SrrFirestoreInitializer _firestoreInitializer;
 
   Future<SrrDependencies> bootstrap() async {
     await _firebaseInitializer.initialize();
+    _firestoreInitializer.initialize();
     return SrrDependencies.bootstrap(apiBaseUrl: SrrRuntimeEnv.apiBaseUrl);
   }
 

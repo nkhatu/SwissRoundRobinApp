@@ -56,6 +56,56 @@ cd "$SRR_ROOT"
 firebase deploy --only functions,firestore:rules
 ```
 
+## Round 1 score-sheet batch script
+
+Use this backend utility to:
+
+- auto-generate and apply Round 1 score sheets across all groups/matches
+- generate an Excel upload template
+- apply scores from an edited Excel/CSV workbook
+
+### Files
+
+- Backend script: `functions/src/scripts/round1_scoresheet_batch.ts`
+- Root wrapper: `scripts/round1_scoresheet_batch.sh`
+- Upload template: `templates/round1_scoresheet_upload_template.xlsx`
+- CSV template: `templates/round1_scoresheet_upload_template.csv`
+
+### Local prerequisites
+
+From your machine shell (one-time for local Firestore admin calls):
+
+```bash
+gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT:-carrom-srr}"
+```
+
+### Commands
+
+Auto-generate and apply Round 1 scores:
+
+```bash
+./scripts/round1_scoresheet_batch.sh --mode auto --tournament-id 1 --round 1
+```
+
+Generate workbook template only:
+
+```bash
+./scripts/round1_scoresheet_batch.sh --mode template --tournament-id 1 --round 1 --output templates/round1_scoresheet_upload_template.xlsx
+```
+
+Apply from edited upload workbook:
+
+```bash
+./scripts/round1_scoresheet_batch.sh --mode apply --tournament-id 1 --round 1 --input templates/round1_scoresheet_upload_template.xlsx
+```
+
+Dry run without writes:
+
+```bash
+./scripts/round1_scoresheet_batch.sh --mode auto --tournament-id 1 --round 1 --dry-run
+```
+
 ### Recommended function env
 
 Set env vars in your Functions runtime (or `functions/.env` for local/dev):
@@ -97,6 +147,16 @@ For web:
 ```bash
 flutter run -d chrome --dart-define=SRR_API_URL=https://example.com/api
 ```
+
+If your project uses a non-default Firestore database, also pass:
+
+```bash
+flutter run \
+  --dart-define=SRR_API_URL=https://example.com/api \
+  --dart-define=FIREBASE_FIRESTORE_DATABASE_ID=carrom-srr
+```
+
+When omitted, the app uses Firestore database `"(default)"`.
 
 ## Google and Apple sign-in (Firebase Auth)
 

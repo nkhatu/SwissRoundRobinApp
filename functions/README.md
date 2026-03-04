@@ -20,6 +20,7 @@ Useful env vars:
 
 - `BOOTSTRAP_ADMIN_HANDLE` / `BOOTSTRAP_ADMIN_PASSWORD` (optional initial admin)
 - `ALLOW_DEMO_SEED` and optional `SEED_API_KEY` for `/setup/seed`
+- `FIRESTORE_DATABASE_ID` (set to a named Firestore DB, defaults to `"(default)"`)
 
 Source files:
 
@@ -122,4 +123,5 @@ Set function env in `functions/.env` (or in Firebase console for production):
 ```bash
 FUNCTION_REGION=us-central1
 APPLE_ANDROID_PACKAGE=com.example.carrom_srr
+FIRESTORE_DATABASE_ID=(default)
 ```

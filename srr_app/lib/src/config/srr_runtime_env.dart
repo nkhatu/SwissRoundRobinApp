@@ -39,6 +39,10 @@ class SrrRuntimeEnv {
   static const _firebaseWebMeasurementId = String.fromEnvironment(
     'FIREBASE_WEB_MEASUREMENT_ID',
   );
+  static const _firebaseFirestoreDatabaseId = String.fromEnvironment(
+    'FIREBASE_FIRESTORE_DATABASE_ID',
+    defaultValue: '(default)',
+  );
 
   static SrrFirebaseWebRuntimeConfig get firebaseWeb =>
       SrrFirebaseWebRuntimeConfig(
@@ -52,6 +56,11 @@ class SrrRuntimeEnv {
         storageBucket: _firebaseWebStorageBucket,
         measurementId: _firebaseWebMeasurementId,
       );
+
+  static String get firestoreDatabaseId {
+    final normalized = _firebaseFirestoreDatabaseId.trim();
+    return normalized.isEmpty ? '(default)' : normalized;
+  }
 }
 
 class SrrFirebaseWebRuntimeConfig {
