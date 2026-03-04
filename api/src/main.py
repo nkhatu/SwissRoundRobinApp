@@ -31,7 +31,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 Role = Literal['player', 'viewer']
 
 DB_PATH = Path(os.getenv('DB_PATH', Path(__file__).resolve().parents[1] / 'data' / 'srr.sqlite3'))
-APPLE_ANDROID_PACKAGE = os.getenv('APPLE_ANDROID_PACKAGE', 'com.example.carrom_srr')
+APPLE_ANDROID_PACKAGE = os.getenv('APPLE_ANDROID_PACKAGE', 'com.khatu.carrom_srr')
 
 
 class UserDto(BaseModel):

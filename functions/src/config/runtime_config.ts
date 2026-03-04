@@ -77,7 +77,7 @@ export const runtimeConfig = {
   demoAdminHandle: process.env.DEMO_ADMIN_HANDLE?.trim() || 'admin',
   demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD?.trim() || 'admin123',
   appleAndroidPackage:
-    process.env.APPLE_ANDROID_PACKAGE?.trim() || 'com.example.carrom_srr',
+    process.env.APPLE_ANDROID_PACKAGE?.trim() || 'com.khatu.carrom_srr',
   googleClientIds: resolveGoogleClientIds(),
   appleServiceIds: resolveAppleServiceIds(),
 };

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// srr_app/android/app/src/main/kotlin/com/example/carrom_srr/MainActivity.kt
+// srr_app/android/app/src/main/kotlin/com/khatu/carrom_srr/MainActivity.kt
 // ---------------------------------------------------------------------------
 // 
 // Purpose:
@@ -10,7 +10,7 @@
 // Author: Neil Khatu
 // Copyright (c) The Khatu Family Trust
 // 
-package com.example.carrom_srr
+package com.khatu.carrom_srr
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

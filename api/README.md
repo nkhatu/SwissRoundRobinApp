@@ -46,7 +46,7 @@ Seed runs automatically on first startup:
 - `POST /callbacks/sign_in_with_apple`
 - `GET /callbacks/sign_in_with_apple`
 
-Set `APPLE_ANDROID_PACKAGE` in API environment if your Android package is not `com.example.carrom_srr`.
+Set `APPLE_ANDROID_PACKAGE` in API environment if your Android package is not `com.khatu.carrom_srr`.
 
 ## Security note
 
